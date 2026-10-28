@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Alerte Caisse · Téléchargements</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800&family=Public+Sans:wght@400;600;700&display=swap">
+<style>
+:root {
+  --bg: #eef0f3; --surface: #fff; --line: #d9dde4; --fg: #1a1e25; --muted: #5c6472;
+  --accent: #c62828; --navy: #10263d; --ok: #2e7d32;
+  --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --body: "Public Sans", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #0f1216; --surface: #191d23; --line: #313843; --fg: #e8ebf0; --muted: #9aa3b1; --accent: #ef5350; --navy: #9fc3e8; --ok: #66bb6a; color-scheme: dark; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.55 var(--body); padding: 32px 16px 48px; }
+main { max-width: 880px; margin: 0 auto; display: grid; gap: 24px; }
+header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand i { width: 44px; height: 44px; border-radius: 50%; background: #c62828; display: grid; place-items: center; }
+.brand svg { width: 22px; height: 22px; stroke: #fff; fill: none; stroke-width: 2.2; }
+h1 { font: 800 clamp(26px, 5vw, 36px)/1.1 var(--display); margin: 0; }
+h2 { font: 800 20px/1.2 var(--display); margin: 0; }
+.meta { color: var(--muted); font-size: 14px; }
+.lang { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.lang button { border: 0; background: transparent; color: var(--fg); padding: 6px 12px; font: 700 13px var(--body); cursor: pointer; opacity: .6; }
+.lang button[aria-pressed="true"] { background: var(--fg); color: var(--bg); opacity: 1; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 20px; display: grid; gap: 12px; align-content: start; }
+.card.manager { border-top: 5px solid var(--accent); }
+.card.caisse { border-top: 5px solid var(--navy); }
+.tag { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.dl { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 13px 16px; border-radius: 11px; text-decoration: none; font-weight: 700; color: #fff; background: var(--accent); }
+.card.caisse .dl { background: #10263d; }
+.dl small { font-weight: 600; opacity: .8; }
+.dl.off { background: var(--line) !important; color: var(--muted); pointer-events: none; }
+ol { margin: 0; padding-left: 20px; display: grid; gap: 6px; color: var(--muted); font-size: 14px; }
+ol b { color: var(--fg); }
+.note { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; display: grid; gap: 6px; font-size: 14px; color: var(--muted); }
+.note b { color: var(--fg); }
+a:focus-visible, button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="brand">
+      <i><svg viewBox="0 0 24 24"><path d="M3 11v2a1 1 0 0 0 1 1h3l5 4V6L7 10H4a1 1 0 0 0-1 1z"/><path d="M16 8.5a5 5 0 0 1 0 7"/></svg></i>
+      <div><h1>Alerte Caisse</h1><div class="meta" id="meta"></div></div>
+    </div>
+    <div class="lang" role="group" aria-label="Langue"><button type="button" data-l="fr">FR</button><button type="button" data-l="en">EN</button></div>
+  </header>
+
+  <div class="grid">
+    <section class="card manager">
+      <span class="tag" data-t="tagM"></span>
+      <h2 data-t="titleM"></h2>
+      <p class="meta" data-t="subM"></p>
+      <a class="dl" href="downloads/AlerteCaisse-Manager.apk" download><span data-t="dlAndroid"></span><small>.apk</small></a>
+      <ol id="stepsM"></ol>
+    </section>
+    <section class="card caisse">
+      <span class="tag" data-t="tagC"></span>
+      <h2 data-t="titleC"></h2>
+      <p class="meta" data-t="subC"></p>
+      <a class="dl" href="downloads/AlerteCaisse-Caisse-Windows.zip" download><span data-t="dlWin"></span><small>.zip</small></a>
+      <ol id="stepsC"></ol>
+    </section>
+  </div>
+
+  <div class="note">
+    <b data-t="iphoneT"></b><span data-t="iphoneS"></span>
+  </div>
+</main>
+<script>
+const T = {
+  fr: {
+    meta: 'Version __VERSION__ · mise à jour le __DATE__',
+    tagM: 'Téléphone', titleM: 'App Manager', subM: 'Reçoit les alertes des caisses, sonne en plein écran, « J’arrive ».',
+    dlAndroid: 'Télécharger pour Android',
+    stepsM: ['Ouvre ce lien sur le téléphone Android et télécharge le fichier.', 'Touche le fichier : Android demande d’autoriser l’installation depuis le navigateur. Accepte.', 'Ouvre l’app, connecte-toi, accepte les notifications.', 'Touche « Prendre mon service » : une notification <b>« En service »</b> reste affichée. C’est elle qui permet au téléphone de sonner, même écran verrouillé.', '<b>Important</b> : accepte « Ignorer l’optimisation de la batterie », ou Paramètres → Applis → Alerte Caisse → Batterie → <b>Sans restriction</b>.'],
+    tagC: 'Ordinateur', titleC: 'App Caisse', subC: 'Bulle toujours visible au-dessus du logiciel de caisse, raccourci Ctrl + Alt + A.',
+    dlWin: 'Télécharger pour Windows',
+    stepsC: ['Télécharge et décompresse le fichier .zip (clic droit → Extraire tout).', 'Lance <b>alerte_caisse.exe</b>. Si Windows affiche « Windows a protégé votre ordinateur » : <b>Informations complémentaires → Exécuter quand même</b>.', 'Connecte-toi avec le compte caissier. L’app démarre ensuite avec Windows.'],
+    iphoneT: 'iPhone', iphoneS: 'Apple n’autorise pas l’installation d’apps par simple téléchargement. Pour l’iPhone, l’app passera par TestFlight ou l’App Store (compte Apple Developer requis). En attendant, les managers sur iPhone utilisent la version web.',
+  },
+  en: {
+    meta: 'Version __VERSION__ · updated __DATE__',
+    tagM: 'Phone', titleM: 'Manager app', subM: 'Receives till alerts, rings full-screen, “I’m coming”.',
+    dlAndroid: 'Download for Android',
+    stepsM: ['Open this link on the Android phone and download the file.', 'Tap the file: Android asks to allow installs from the browser. Accept.', 'Open the app, sign in, allow notifications.', 'Tap “Go on duty”: an <b>“On duty”</b> notification stays visible. It is what lets the phone ring, even when locked.', '<b>Important</b>: accept “Ignore battery optimisation”, or Settings → Apps → Alerte Caisse → Battery → <b>Unrestricted</b>.'],
+    tagC: 'Computer', titleC: 'Till app', subC: 'Bubble always on top of the till software, shortcut Ctrl + Alt + A.',
+    dlWin: 'Download for Windows',
+    stepsC: ['Download and unzip the .zip file (right-click → Extract all).', 'Run <b>alerte_caisse.exe</b>. If Windows shows “Windows protected your PC”: <b>More info → Run anyway</b>.', 'Sign in with the cashier account. The app then starts with Windows.'],
+    iphoneT: 'iPhone', iphoneS: 'Apple does not allow installing apps by simple download. For iPhone, the app will go through TestFlight or the App Store (Apple Developer account required). Meanwhile, iPhone managers use the web version.',
+  },
+};
+let lang = (navigator.language || 'fr').startsWith('en') ? 'en' : 'fr';
+function render() {
+  document.documentElement.lang = lang;
+  document.querySelectorAll('[data-t]').forEach((el) => { el.textContent = T[lang][el.dataset.t]; });
+  document.getElementById('meta').textContent = T[lang].meta;
+  document.getElementById('stepsM').innerHTML = T[lang].stepsM.map((s) => `<li>${s}</li>`).join('');
+  document.getElementById('stepsC').innerHTML = T[lang].stepsC.map((s) => `<li>${s}</li>`).join('');
+  document.querySelectorAll('[data-l]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.l === lang));
+}
+document.querySelectorAll('[data-l]').forEach((b) => b.addEventListener('click', () => { lang = b.dataset.l; render(); }));
+render();
+</script>
+</body>
+</html>

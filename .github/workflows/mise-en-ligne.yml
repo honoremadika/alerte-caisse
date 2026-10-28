@@ -1,0 +1,153 @@
+# Mise en ligne d'Alerte Caisse — VERSION GRATUITE (Firebase Spark + GitHub Actions)
+# À chaque envoi sur la branche main (ou à la main depuis l'onglet Actions) :
+#   1. déploie les règles et index Firestore (pas de Cloud Functions : forfait gratuit)
+#   2. compile l'app Manager Android (.apk)
+#   3. compile l'app Caisse Windows (.zip)
+#   4. publie la page de téléchargement sur Firebase Hosting
+#      -> https://<ID_DU_PROJET>.web.app
+#
+# Réglages à faire une fois dans GitHub (Settings -> Secrets and variables -> Actions) :
+#   Secret   FIREBASE_SERVICE_ACCOUNT : contenu complet du fichier JSON de la clé de service
+#   Variable FIREBASE_PROJECT_ID      : identifiant du projet Firebase (ex. alerte-caisse-1234)
+
+name: Mise en ligne
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID || 'alerte-caisse' }}
+  ORG: tech.geniuslabs
+
+jobs:
+  serveur:
+    name: Serveur Firebase
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Clé de service
+        run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "$RUNNER_TEMP/sa.json"
+      - name: Déployer règles et index Firestore
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+        run: |
+          npm install -g firebase-tools
+          firebase deploy --only firestore --project "$PROJECT_ID" --non-interactive
+
+  android:
+    name: App Manager · Android
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Préparer le projet
+        run: |
+          flutter create --platforms=android --org "$ORG" --project-name alerte_caisse .
+          python3 tools/ci_prepare.py
+      - name: Relier Firebase
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "$RUNNER_TEMP/sa.json"
+          npm install -g firebase-tools
+          dart pub global activate flutterfire_cli
+          export PATH="$PATH:$HOME/.pub-cache/bin"
+          flutterfire configure --yes --project="$PROJECT_ID" --platforms=android \
+            --android-package-name="$ORG.alerte_caisse" \
+            --service-account="$RUNNER_TEMP/sa.json" --overwrite-firebase-options
+      - name: Compiler l'APK
+        run: |
+          flutter pub get
+          flutter build apk --release -t lib/main_manager.dart
+          mkdir -p out && cp build/app/outputs/flutter-apk/app-release.apk out/AlerteCaisse-Manager.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: out/
+
+  windows:
+    name: App Caisse · Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Préparer le projet
+        shell: bash
+        run: |
+          flutter create --platforms=windows --org "$ORG" --project-name alerte_caisse .
+          python tools/ci_prepare.py
+      - name: Relier Firebase
+        shell: bash
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "$RUNNER_TEMP/sa.json"
+          npm install -g firebase-tools
+          dart pub global activate flutterfire_cli
+          export PATH="$PATH:$USERPROFILE/AppData/Local/Pub/Cache/bin:$HOME/.pub-cache/bin"
+          flutterfire configure --yes --project="$PROJECT_ID" --platforms=windows \
+            --service-account="$RUNNER_TEMP/sa.json" --overwrite-firebase-options
+      - name: Compiler pour Windows
+        shell: bash
+        run: |
+          flutter pub get
+          flutter build windows --release -t lib/main_caisse.dart
+          mkdir -p out
+          cd build/windows/x64/runner/Release && 7z a -tzip ../../../../../out/AlerteCaisse-Caisse-Windows.zip .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: out/
+
+  page:
+    name: Page de téléchargement
+    needs: [serveur, android, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dl
+      - name: Assembler la page
+        run: |
+          mkdir -p public/downloads
+          find dl -type f \( -name '*.apk' -o -name '*.zip' \) -exec cp {} public/downloads/ \;
+          ls -la public/downloads
+          VERSION=$(grep '^version:' pubspec.yaml | awk '{print $2}' | cut -d+ -f1)
+          DATE=$(date -u +%d/%m/%Y)
+          sed -i "s/__VERSION__/$VERSION/g; s#__DATE__#$DATE#g" public/index.html
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Publier sur Firebase Hosting
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "$RUNNER_TEMP/sa.json"
+          npm install -g firebase-tools
+          firebase deploy --only hosting --project "$PROJECT_ID" --non-interactive
+          echo "Page en ligne : https://$PROJECT_ID.web.app" >> "$GITHUB_STEP_SUMMARY"

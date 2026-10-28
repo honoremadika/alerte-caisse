@@ -1,0 +1,21 @@
+# Flutter / Dart
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+pubspec.lock
+# Dossiers de plateforme générés par `flutter create` (recréés par la compilation)
+android/
+ios/
+windows/
+macos/
+linux/
+web/
+# Node
+node_modules/
+# Clés et secrets : ne jamais envoyer
+*-firebase-adminsdk-*.json
+service-account*.json
+.env
+.DS_Store

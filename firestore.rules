@@ -1,0 +1,64 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function me() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    function isManager() { return signedIn() && me().role == 'manager'; }
+    function isCashier() { return signedIn() && me().role == 'cashier'; }
+    function onlyChanges(fields) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
+    }
+    // Un manager n'agit que sur les magasins qui lui sont attribués.
+    function managesStore(storeId) {
+      return isManager() && storeId in me().get('storeIds', []);
+    }
+
+    // Magasins : créés par l'administrateur (console Firebase).
+    match /stores/{storeId} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    // Profils : créés par l'administrateur. Chacun peut seulement modifier
+    // ses jetons de notification, sa langue et sa prise de service.
+    match /users/{uid} {
+      allow read: if signedIn();
+      allow update: if signedIn() && request.auth.uid == uid
+        && onlyChanges(['fcmTokens', 'lang', 'onDuty', 'dutyStoreId', 'dutyUntil'])
+        // service uniquement dans un de SES magasins, 13 h maximum
+        && (!request.resource.data.get('onDuty', false)
+            || (request.resource.data.dutyStoreId in resource.data.get('storeIds', [])
+                && request.resource.data.dutyUntil <= request.time + duration.value(13, 'h')));
+    }
+
+    match /alerts/{alertId} {
+      allow read: if signedIn()
+        && (managesStore(resource.data.storeId)
+            || (isCashier() && resource.data.storeId == me().storeId));
+
+      // Un caissier crée une alerte pour SON magasin, à son nom, au statut "open".
+      allow create: if isCashier()
+        && request.resource.data.cashierId == request.auth.uid
+        && request.resource.data.storeId == me().storeId
+        && request.resource.data.status == 'open';
+
+      allow update: if
+        (managesStore(resource.data.storeId)
+          && onlyChanges(['status', 'takenAt', 'takenBy', 'takenByName',
+                          'resolvedAt', 'resolvedBy', 'resolvedByName'])
+          && request.resource.data.status in ['taken', 'resolved']
+          && (request.resource.data.status != 'taken'
+              || request.resource.data.takenBy == request.auth.uid))
+        ||
+        (isCashier() && resource.data.cashierId == request.auth.uid
+          && resource.data.status == 'open'
+          && request.resource.data.status == 'cancelled'
+          && onlyChanges(['status', 'cancelledAt']));
+
+      allow delete: if false;
+    }
+  }
+}

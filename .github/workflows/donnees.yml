@@ -1,0 +1,23 @@
+# Crée les 40 magasins et relie les comptes à leur rôle (tools/donnees.js).
+name: Données
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [tools/donnees.js]
+jobs:
+  donnees:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Enregistrer magasins et profils
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+          GOOGLE_CLOUD_PROJECT: alerte-caisse
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "$RUNNER_TEMP/sa.json"
+          npm install --no-save firebase-admin@12
+          node tools/donnees.js

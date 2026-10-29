@@ -108,8 +108,7 @@ jobs:
           echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "$RUNNER_TEMP/sa.json"
           npm install -g firebase-tools
           dart pub global activate flutterfire_cli
-          export PATH="$PATH:$USERPROFILE/AppData/Local/Pub/Cache/bin:$HOME/.pub-cache/bin"
-          flutterfire configure --yes --project="$PROJECT_ID" --platforms=windows \
+          dart pub global run flutterfire_cli:flutterfire configure --yes --project="$PROJECT_ID" --platforms=windows \
             --service-account="$RUNNER_TEMP/sa.json" --overwrite-firebase-options
       - name: Compiler pour Windows
         shell: bash

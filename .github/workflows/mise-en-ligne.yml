@@ -157,5 +157,9 @@ jobs:
         run: |
           echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "$RUNNER_TEMP/sa.json"
           npm install -g firebase-tools
-          firebase deploy --only hosting --project "$PROJECT_ID" --non-interactive
+          set -o pipefail
+          if ! firebase deploy --only hosting --project "$PROJECT_ID" --non-interactive 2>&1 | tee deploy.log; then
+            grep -iE "error|denied|permission|not found|failed" deploy.log | head -20 | while IFS= read -r l; do echo "::error::$l"; done
+            exit 1
+          fi
           echo "Page en ligne : https://$PROJECT_ID.web.app" >> "$GITHUB_STEP_SUMMARY"

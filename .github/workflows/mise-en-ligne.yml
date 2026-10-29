@@ -112,6 +112,9 @@ jobs:
             --service-account="$RUNNER_TEMP/sa.json" --overwrite-firebase-options
       - name: Compiler pour Windows
         shell: bash
+        env:
+          # Le SDK C++ Firebase déclare une ancienne version de CMake, refusée par CMake 4.
+          CMAKE_POLICY_VERSION_MINIMUM: "3.5"
         run: |
           flutter pub get
           set -o pipefail

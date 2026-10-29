@@ -114,7 +114,11 @@ jobs:
         shell: bash
         run: |
           flutter pub get
-          flutter build windows --release -t lib/main_caisse.dart
+          set -o pipefail
+          if ! flutter build windows --release -t lib/main_caisse.dart 2>&1 | tee build.log; then
+            grep -iE "error|exception|failed" build.log | head -30 | while IFS= read -r l; do echo "::error::$l"; done
+            exit 1
+          fi
           mkdir -p out
           cd build/windows/x64/runner/Release && 7z a -tzip ../../../../../out/AlerteCaisse-Caisse-Windows.zip .
       - uses: actions/upload-artifact@v4
@@ -125,6 +129,8 @@ jobs:
   page:
     name: Page de téléchargement
     needs: [serveur, android, windows]
+    # Publie dès que l'APK Android est prêt, même si Windows a échoué.
+    if: ${{ always() && needs.android.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

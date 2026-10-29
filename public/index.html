@@ -110,6 +110,10 @@ function render() {
 }
 document.querySelectorAll('[data-l]').forEach((b) => b.addEventListener('click', () => { lang = b.dataset.l; render(); }));
 render();
+// Masque un bouton si le fichier n'est pas encore publié.
+document.querySelectorAll('a.dl').forEach((a) => {
+  fetch(a.getAttribute('href'), { method: 'HEAD' }).then((r) => { if (!r.ok) { a.classList.add('off'); a.querySelector('small').textContent = lang === 'en' ? 'coming soon' : 'bientôt'; } }).catch(() => {});
+});
 </script>
 </body>
 </html>

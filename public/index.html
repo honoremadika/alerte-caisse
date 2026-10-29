@@ -60,14 +60,14 @@ a:focus-visible, button:focus-visible { outline: 3px solid var(--accent); outlin
       <span class="tag" data-t="tagM"></span>
       <h2 data-t="titleM"></h2>
       <p class="meta" data-t="subM"></p>
-      <a class="dl" href="downloads/AlerteCaisse-Manager.apk" download><span data-t="dlAndroid"></span><small>.apk</small></a>
+      <a class="dl" href="https://github.com/__REPO__/releases/latest/download/AlerteCaisse-Manager.apk"><span data-t="dlAndroid"></span><small>.apk</small></a>
       <ol id="stepsM"></ol>
     </section>
     <section class="card caisse">
       <span class="tag" data-t="tagC"></span>
       <h2 data-t="titleC"></h2>
       <p class="meta" data-t="subC"></p>
-      <a class="dl" href="downloads/AlerteCaisse-Caisse-Windows.zip" download><span data-t="dlWin"></span><small>.zip</small></a>
+      <a class="dl" href="https://github.com/__REPO__/releases/latest/download/AlerteCaisse-Caisse-Windows.zip"><span data-t="dlWin"></span><small>.zip</small></a>
       <ol id="stepsC"></ol>
     </section>
   </div>
@@ -110,10 +110,6 @@ function render() {
 }
 document.querySelectorAll('[data-l]').forEach((b) => b.addEventListener('click', () => { lang = b.dataset.l; render(); }));
 render();
-// Masque un bouton si le fichier n'est pas encore publié.
-document.querySelectorAll('a.dl').forEach((a) => {
-  fetch(a.getAttribute('href'), { method: 'HEAD' }).then((r) => { if (!r.ok) { a.classList.add('off'); a.querySelector('small').textContent = lang === 'en' ? 'coming soon' : 'bientôt'; } }).catch(() => {});
-});
 </script>
 </body>
 </html>

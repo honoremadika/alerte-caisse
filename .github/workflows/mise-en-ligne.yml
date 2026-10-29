@@ -18,7 +18,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 env:
   PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID || 'alerte-caisse' }}
@@ -140,14 +140,21 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: dl
+      - name: Publier les fichiers (GitHub Releases)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p files
+          find dl -type f \( -name '*.apk' -o -name '*.zip' \) -exec cp {} files/ \;
+          ls -la files
+          VERSION=$(grep '^version:' pubspec.yaml | awk '{print $2}' | cut -d+ -f1)
+          TAG="v$VERSION-$GITHUB_RUN_NUMBER"
+          gh release create "$TAG" files/* --repo "$GITHUB_REPOSITORY" --title "Alerte Caisse $VERSION" --notes "App Manager (Android) et App Caisse (Windows)." --latest
       - name: Assembler la page
         run: |
-          mkdir -p public/downloads
-          find dl -type f \( -name '*.apk' -o -name '*.zip' \) -exec cp {} public/downloads/ \;
-          ls -la public/downloads
           VERSION=$(grep '^version:' pubspec.yaml | awk '{print $2}' | cut -d+ -f1)
           DATE=$(date -u +%d/%m/%Y)
-          sed -i "s/__VERSION__/$VERSION/g; s#__DATE__#$DATE#g" public/index.html
+          sed -i "s/__VERSION__/$VERSION/g; s#__DATE__#$DATE#g; s#__REPO__#$GITHUB_REPOSITORY#g" public/index.html
       - uses: actions/setup-node@v4
         with:
           node-version: 20

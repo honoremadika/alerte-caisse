@@ -143,6 +143,13 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: dl
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Outils Firebase
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "$RUNNER_TEMP/sa.json"
+          npm install -g firebase-tools
       - name: Publier les fichiers (GitHub Releases)
         env:
           GH_TOKEN: ${{ github.token }}
@@ -153,20 +160,28 @@ jobs:
           VERSION=$(grep '^version:' pubspec.yaml | awk '{print $2}' | cut -d+ -f1)
           TAG="v$VERSION-$GITHUB_RUN_NUMBER"
           gh release create "$TAG" files/* --repo "$GITHUB_REPOSITORY" --title "Alerte Caisse $VERSION" --notes "App Manager (Android) et App Caisse (Windows)." --latest
+      - name: Configuration web (Firebase)
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+        run: |
+          APPID=$(firebase apps:list WEB --project "$PROJECT_ID" --json | jq -r '.result[0].appId // empty')
+          if [ -z "$APPID" ]; then
+            APPID=$(firebase apps:create WEB "Alerte Caisse Web" --project "$PROJECT_ID" --json | jq -r '.result.appId')
+          fi
+          firebase apps:sdkconfig WEB "$APPID" --project "$PROJECT_ID" --json | jq '.result.sdkConfig' > cfg.json
+          jq -e '.apiKey and .projectId and .appId' cfg.json > /dev/null
+          echo "export default $(cat cfg.json);" > public/js/firebase-config.js
+          echo "Config web OK ($APPID)"
       - name: Assembler la page
         run: |
           VERSION=$(grep '^version:' pubspec.yaml | awk '{print $2}' | cut -d+ -f1)
           DATE=$(date -u +%d/%m/%Y)
           sed -i "s/__VERSION__/$VERSION/g; s#__DATE__#$DATE#g; s#__REPO__#$GITHUB_REPOSITORY#g" public/index.html
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
+          rm -rf public/downloads
       - name: Publier sur Firebase Hosting
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
         run: |
-          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "$RUNNER_TEMP/sa.json"
-          npm install -g firebase-tools
           set -o pipefail
           if ! firebase deploy --only hosting --project "$PROJECT_ID" --non-interactive 2>&1 | tee deploy.log; then
             grep -iE "error|denied|permission|not found|failed" deploy.log | head -20 | while IFS= read -r l; do echo "::error::$l"; done

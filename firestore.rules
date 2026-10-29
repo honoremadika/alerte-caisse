@@ -16,6 +16,13 @@ service cloud.firestore {
       return isManager() && storeId in me().get('storeIds', []);
     }
 
+    // Identifiant -> email, lu AVANT la connexion (écran « Identifiant »).
+    // Rempli uniquement par l'administrateur (tools/donnees.js).
+    match /logins/{id} {
+      allow get: if true;
+      allow list, write: if false;
+    }
+
     // Magasins : créés par l'administrateur (console Firebase).
     match /stores/{storeId} {
       allow read: if signedIn();

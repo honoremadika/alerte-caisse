@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../l10n/strings.dart';
 import '../models/alert.dart';
@@ -15,6 +16,7 @@ import '../services/notification_service.dart';
 import '../services/store_service.dart';
 import '../widgets/lang_menu.dart';
 import 'history_screen.dart';
+import 'password_screen.dart';
 
 /// Écran du manager (Android / iPhone).
 class ManagerScreen extends StatefulWidget {
@@ -79,23 +81,37 @@ class _ManagerScreenState extends State<ManagerScreen> {
 
   Future<void> _startDuty() async {
     if (_stores.isEmpty) return;
-    Store? store = _stores.length == 1 ? _stores.first : null;
+    // Le dernier magasin utilisé sur CE téléphone est proposé en premier.
+    final prefs = await SharedPreferences.getInstance();
+    final last = prefs.getString('lastStore');
+    final ordered = [
+      ..._stores.where((s) => s.id == last),
+      ..._stores.where((s) => s.id != last),
+    ];
+    if (!mounted) return;
+    Store? store = ordered.length == 1 ? ordered.first : null;
     store ??= await showDialog<Store>(
       context: context,
       builder: (ctx) => SimpleDialog(
         title: Text(tr('chooseStore')),
-        children: _stores
+        children: ordered
             .map((s) => SimpleDialogOption(
                   onPressed: () => Navigator.pop(ctx, s),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 6),
-                    child: Text(s.name, style: const TextStyle(fontSize: 16)),
+                    child: Text(
+                      s.id == last ? '${s.name}  ·  ${tr('lastUsed')}' : s.name,
+                      style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: s.id == last ? FontWeight.bold : FontWeight.normal),
+                    ),
                   ),
                 ))
             .toList(),
       ),
     );
     if (store == null) return;
+    await prefs.setString('lastStore', store.id);
     setState(() => _busy = true);
     final err = await _duty.start(me, store);
     if (!mounted) return;
@@ -134,6 +150,12 @@ class _ManagerScreenState extends State<ManagerScreen> {
                 ? null
                 : () => Navigator.of(context).push(MaterialPageRoute(
                     builder: (_) => HistoryScreen(storeId: _storeId))),
+          ),
+          IconButton(
+            tooltip: tr('changePassword'),
+            icon: const Icon(Icons.key),
+            onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const PasswordScreen())),
           ),
           IconButton(
             tooltip: tr('signOut'),

@@ -11,6 +11,7 @@ import '../services/auth_service.dart';
 import '../services/desktop_overlay.dart';
 import '../services/store_service.dart';
 import '../widgets/lang_menu.dart';
+import 'password_screen.dart';
 
 /// Écran du caissier. Sur ordinateur : une bulle flottante au-dessus du
 /// logiciel de caisse, qui s'ouvre en panneau (clic ou Ctrl+Alt+A).
@@ -140,6 +141,8 @@ class _CashierPanelState extends State<_CashierPanel> {
 
         return Scaffold(
           appBar: AppBar(
+            // Glisser la barre du haut pour déplacer la fenêtre.
+            flexibleSpace: DesktopOverlay.dragArea(child: const SizedBox.expand()),
             titleSpacing: 12,
             title: Text(
               '${tr('register', {'n': widget.user.register})} · ${widget.user.name}'
@@ -148,6 +151,12 @@ class _CashierPanelState extends State<_CashierPanel> {
             ),
             actions: [
               LangMenu(),
+              IconButton(
+                tooltip: tr('changePassword'),
+                icon: const Icon(Icons.key),
+                onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const PasswordScreen())),
+              ),
               IconButton(
                 tooltip: tr('signOut'),
                 icon: const Icon(Icons.logout),

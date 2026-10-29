@@ -26,9 +26,10 @@ const STORES = [
 const ALL = STORES.map((s) => s.id);
 
 // ---- Profils : modifier ici puis relancer le workflow « Données » ----
+// id = identifiant tapé à la connexion (minuscules, sans espace).
 const PROFILS = [
-  { email: "honey@gmail.com", name: "Honey", role: "manager", storeIds: ALL, lang: "fr" },
-  { email: "meya@gmail.com", name: "Meya", role: "cashier", storeId: "km06", register: "1" },
+  { id: "honey", email: "honey@gmail.com", name: "Honey", role: "manager", storeIds: ALL, lang: "fr" },
+  { id: "meya", email: "meya@gmail.com", name: "Meya", role: "cashier", storeId: "km06", register: "1" },
 ];
 
 (async () => {
@@ -36,11 +37,12 @@ const PROFILS = [
   for (const { id, ...data } of STORES) batch.set(db.collection("stores").doc(id), data, { merge: true });
   await batch.commit();
   console.log(`${STORES.length} magasins enregistrés.`);
-  for (const { email, ...profil } of PROFILS) {
+  for (const { id, email, ...profil } of PROFILS) {
     try {
       const u = await getAuth().getUserByEmail(email);
-      await db.collection("users").doc(u.uid).set(profil, { merge: true });
-      console.log(`Profil OK : ${email} (${profil.role})`);
+      await db.collection("users").doc(u.uid).set({ ...profil, loginId: id }, { merge: true });
+      await db.collection("logins").doc(id).set({ email });
+      console.log(`Profil OK : ${id} -> ${email} (${profil.role})`);
     } catch (e) {
       console.log(`::warning::${email} : compte introuvable dans Authentication (${e.code || e.message})`);
     }

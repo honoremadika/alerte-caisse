@@ -10,13 +10,13 @@ class StoreService {
     return _stores.doc(id).snapshots().map((d) => d.exists ? Store.fromDoc(d) : null);
   }
 
-  /// Magasins d'un manager (30 maximum, limite Firestore).
+  /// Magasins d'un manager. On lit toute la collection (40 magasins) puis on
+  /// filtre : la requête « whereIn » de Firestore est limitée à 30 valeurs.
   Future<List<Store>> list(List<String> ids) async {
     if (ids.isEmpty) return [];
-    final snap = await _stores
-        .where(FieldPath.documentId, whereIn: ids.take(30).toList())
-        .get();
-    return snap.docs.map(Store.fromDoc).toList()
-      ..sort((a, b) => a.name.compareTo(b.name));
+    final wanted = ids.toSet();
+    final snap = await _stores.get();
+    return snap.docs.where((d) => wanted.contains(d.id)).map(Store.fromDoc).toList()
+      ..sort((a, b) => a.id.compareTo(b.id));
   }
 }

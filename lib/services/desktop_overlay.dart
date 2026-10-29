@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:launch_at_startup/launch_at_startup.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:window_manager/window_manager.dart';
 
 /// Ordinateur caissier : l'app vit dans une petite bulle rouge toujours
@@ -68,11 +69,53 @@ class DesktopOverlay {
 
   static Future<void> toggle() => expanded.value ? collapse() : expand();
 
+  // Positions et taille choisies par le caissier (gardées après redémarrage).
+  static Offset? _panelPos;
+  static Size? _panelSize;
+  static Offset? _bubblePos;
+
+  static Future<void> _loadPlaces() async {
+    final p = await SharedPreferences.getInstance();
+    Offset? off(String k) {
+      final x = p.getDouble('${k}X'), y = p.getDouble('${k}Y');
+      return (x != null && y != null) ? Offset(x, y) : null;
+    }
+    _panelPos ??= off('panel');
+    _bubblePos ??= off('bubble');
+    final w = p.getDouble('panelW'), h = p.getDouble('panelH');
+    if (_panelSize == null && w != null && h != null) _panelSize = Size(w, h);
+  }
+
+  static Future<void> _savePlaces() async {
+    final p = await SharedPreferences.getInstance();
+    if (_panelPos != null) {
+      await p.setDouble('panelX', _panelPos!.dx);
+      await p.setDouble('panelY', _panelPos!.dy);
+    }
+    if (_panelSize != null) {
+      await p.setDouble('panelW', _panelSize!.width);
+      await p.setDouble('panelH', _panelSize!.height);
+    }
+    if (_bubblePos != null) {
+      await p.setDouble('bubbleX', _bubblePos!.dx);
+      await p.setDouble('bubbleY', _bubblePos!.dy);
+    }
+  }
+
   static Future<void> expand() async {
     if (!isDesktop) return;
+    await _loadPlaces();
+    if (!expanded.value) _bubblePos = await windowManager.getPosition();
     expanded.value = true;
-    await windowManager.setSize(panelSize);
-    await windowManager.setAlignment(Alignment.bottomRight);
+    // Panneau : déplaçable (barre du haut) et redimensionnable (bords).
+    await windowManager.setResizable(true);
+    await windowManager.setMinimumSize(const Size(380, 480));
+    await windowManager.setSize(_panelSize ?? panelSize);
+    if (_panelPos != null) {
+      await windowManager.setPosition(_panelPos!);
+    } else {
+      await windowManager.setAlignment(Alignment.bottomRight);
+    }
     await windowManager.setAlwaysOnTop(true);
     await windowManager.show();
     await windowManager.focus();
@@ -80,12 +123,30 @@ class DesktopOverlay {
 
   static Future<void> collapse() async {
     if (!isDesktop) return;
+    if (expanded.value) {
+      _panelPos = await windowManager.getPosition();
+      _panelSize = await windowManager.getSize();
+    }
     expanded.value = false;
+    await windowManager.setMinimumSize(bubbleSize);
+    await windowManager.setResizable(false);
     await windowManager.setSize(bubbleSize);
-    await windowManager.setAlignment(Alignment.centerRight);
+    if (_bubblePos != null) {
+      await windowManager.setPosition(_bubblePos!);
+    } else {
+      await windowManager.setAlignment(Alignment.centerRight);
+    }
     await windowManager.setAlwaysOnTop(true);
+    await _savePlaces();
   }
 
   /// Glisser la bulle pour la déplacer sur l'écran.
-  static Future<void> startDrag() => windowManager.startDragging();
+  static Future<void> startDrag() async {
+    await windowManager.startDragging();
+  }
+
+  /// Zone qui permet de déplacer la fenêtre en la faisant glisser
+  /// (la fenêtre n'a pas de barre de titre Windows).
+  static Widget dragArea({required Widget child}) =>
+      isDesktop ? DragToMoveArea(child: child) : child;
 }

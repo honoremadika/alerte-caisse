@@ -32,6 +32,10 @@ h2 { font: 800 20px/1.2 var(--display); margin: 0; }
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 20px; display: grid; gap: 12px; align-content: start; }
 .card.manager { border-top: 5px solid var(--accent); }
+.card.web { border-top: 5px solid var(--ok); }
+.weblinks { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+.weblinks .dl { background: var(--ok); }
+.weblinks .caisse-l { background: #10263d; }
 .card.caisse { border-top: 5px solid var(--navy); }
 .tag { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .dl { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 13px 16px; border-radius: 11px; text-decoration: none; font-weight: 700; color: #fff; background: var(--accent); }
@@ -54,6 +58,16 @@ a:focus-visible, button:focus-visible { outline: 3px solid var(--accent); outlin
     </div>
     <div class="lang" role="group" aria-label="Langue"><button type="button" data-l="fr">FR</button><button type="button" data-l="en">EN</button></div>
   </header>
+
+  <section class="card web">
+    <span class="tag" data-t="tagW"></span>
+    <h2 data-t="titleW"></h2>
+    <p class="meta" data-t="subW"></p>
+    <div class="weblinks">
+      <a class="dl" href="/manager"><span data-t="openM"></span><small>/manager</small></a>
+      <a class="dl caisse-l" href="/caisse"><span data-t="openC"></span><small>/caisse</small></a>
+    </div>
+  </section>
 
   <div class="grid">
     <section class="card manager">
@@ -80,23 +94,27 @@ a:focus-visible, button:focus-visible { outline: 3px solid var(--accent); outlin
 const T = {
   fr: {
     meta: 'Version __VERSION__ · mise à jour le __DATE__',
+    tagW: 'Sans installation', titleW: 'Utiliser dans le navigateur', subW: 'Fonctionne tout de suite sur n’importe quel téléphone (Android, iPhone) et ordinateur. Connexion avec votre identifiant. Gardez la page ouverte, écran allumé, pour entendre la sonnerie.',
+    openM: 'Ouvrir l’app Manager', openC: 'Ouvrir l’app Caisse',
     tagM: 'Téléphone', titleM: 'App Manager', subM: 'Reçoit les alertes des caisses, sonne en plein écran, « J’arrive ».',
     dlAndroid: 'Télécharger pour Android',
     stepsM: ['Ouvre ce lien sur le téléphone Android et télécharge le fichier.', 'Touche le fichier : Android demande d’autoriser l’installation depuis le navigateur. Accepte.', 'Ouvre l’app, connecte-toi, accepte les notifications.', 'Touche « Prendre mon service » : une notification <b>« En service »</b> reste affichée. C’est elle qui permet au téléphone de sonner, même écran verrouillé.', '<b>Important</b> : accepte « Ignorer l’optimisation de la batterie », ou Paramètres → Applis → Alerte Caisse → Batterie → <b>Sans restriction</b>.'],
     tagC: 'Ordinateur', titleC: 'App Caisse', subC: 'Bulle toujours visible au-dessus du logiciel de caisse, raccourci Ctrl + Alt + A.',
     dlWin: 'Télécharger pour Windows',
     stepsC: ['Télécharge et décompresse le fichier .zip (clic droit → Extraire tout).', 'Lance <b>alerte_caisse.exe</b>. Si Windows affiche « Windows a protégé votre ordinateur » : <b>Informations complémentaires → Exécuter quand même</b>.', 'Connecte-toi avec le compte caissier. L’app démarre ensuite avec Windows.'],
-    iphoneT: 'iPhone', iphoneS: 'Apple n’autorise pas l’installation d’apps par simple téléchargement. Pour l’iPhone, l’app passera par TestFlight ou l’App Store (compte Apple Developer requis). En attendant, les managers sur iPhone utilisent la version web.',
+    iphoneT: 'iPhone', iphoneS: 'Apple n’autorise pas l’installation d’apps par simple téléchargement. Pour l’iPhone, l’app passera par TestFlight ou l’App Store (compte Apple Developer requis). En attendant, utilisez l’app Manager dans le navigateur (lien ci-dessus).',
   },
   en: {
     meta: 'Version __VERSION__ · updated __DATE__',
+    tagW: 'No install', titleW: 'Use in the browser', subW: 'Works right away on any phone (Android, iPhone) and computer. Sign in with your user ID. Keep the page open with the screen on to hear the ringing.',
+    openM: 'Open the Manager app', openC: 'Open the Till app',
     tagM: 'Phone', titleM: 'Manager app', subM: 'Receives till alerts, rings full-screen, “I’m coming”.',
     dlAndroid: 'Download for Android',
     stepsM: ['Open this link on the Android phone and download the file.', 'Tap the file: Android asks to allow installs from the browser. Accept.', 'Open the app, sign in, allow notifications.', 'Tap “Go on duty”: an <b>“On duty”</b> notification stays visible. It is what lets the phone ring, even when locked.', '<b>Important</b>: accept “Ignore battery optimisation”, or Settings → Apps → Alerte Caisse → Battery → <b>Unrestricted</b>.'],
     tagC: 'Computer', titleC: 'Till app', subC: 'Bubble always on top of the till software, shortcut Ctrl + Alt + A.',
     dlWin: 'Download for Windows',
     stepsC: ['Download and unzip the .zip file (right-click → Extract all).', 'Run <b>alerte_caisse.exe</b>. If Windows shows “Windows protected your PC”: <b>More info → Run anyway</b>.', 'Sign in with the cashier account. The app then starts with Windows.'],
-    iphoneT: 'iPhone', iphoneS: 'Apple does not allow installing apps by simple download. For iPhone, the app will go through TestFlight or the App Store (Apple Developer account required). Meanwhile, iPhone managers use the web version.',
+    iphoneT: 'iPhone', iphoneS: 'Apple does not allow installing apps by simple download. For iPhone, the app will go through TestFlight or the App Store (Apple Developer account required). Meanwhile, use the Manager app in the browser (link above).',
   },
 };
 let lang = (navigator.language || 'fr').startsWith('en') ? 'en' : 'fr';

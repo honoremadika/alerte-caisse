@@ -24,6 +24,8 @@ const T = {
     hint: 'Raccourcis : touches <kbd>1</kbd> à <kbd>9</kbd> pour choisir, <kbd>Ctrl</kbd> + <kbd>Entrée</kbd> pour envoyer.',
     myAlerts: 'Mes alertes en cours', noMine: 'Aucune alerte en cours.', waiting: 'En attente d’un manager…', coming: '{n} arrive',
     flashSub: 'Caisse {r} · {t}', noStore: 'Ce compte caissier n’a pas de magasin. Demandez à l’administrateur.',
+    installApp: 'Installer l’app sur cet appareil', installed: 'Application installée. Ouvrez-la depuis l’écran d’accueil.', iosHint: 'Pour l’installer sur iPhone : touchez Partager, puis « Sur l’écran d’accueil ».', androidMenuHint: 'Pour l’installer : menu ⋮ de Chrome → « Installer l’application » (ou « Ajouter à l’écran d’accueil »).', apkLink: 'Ou télécharger le fichier Android (.apk)', winLink: 'Ou télécharger l’app Windows (.zip)', setApp: 'Application',
+    postTitle: 'Poste de caisse', postSub: 'Choisissez le magasin et le numéro de caisse de cet ordinateur. C’est gardé sur cet appareil.', store: 'Magasin', registerNo: 'Numéro de caisse', editPost: 'Modifier le poste', needPost: 'Choisissez le magasin et entrez le numéro de caisse.',
     tabLive: 'Alertes', tabHist: 'Historique', tabSet: 'Réglages',
     onDuty: 'En service · {s}', onDutySub: 'Fin automatique à {t}', offDuty: 'Hors service', offInfo: 'Prenez votre service pour recevoir les alertes.',
     startAt: 'Prendre mon service · {s}', lastHere: 'Dernier magasin utilisé sur cet appareil', otherStore: 'Autre magasin',
@@ -64,6 +66,8 @@ const T = {
     hint: 'Shortcuts: keys <kbd>1</kbd> to <kbd>9</kbd> to pick, <kbd>Ctrl</kbd> + <kbd>Enter</kbd> to send.',
     myAlerts: 'My open alerts', noMine: 'No open alerts.', waiting: 'Waiting for a manager…', coming: '{n} is on the way',
     flashSub: 'Till {r} · {t}', noStore: 'This cashier account has no store. Ask the administrator.',
+    installApp: 'Install the app on this device', installed: 'App installed. Open it from the home screen.', iosHint: 'To install on iPhone: tap Share, then “Add to Home Screen”.', androidMenuHint: 'To install: Chrome menu ⋮ → “Install app” (or “Add to Home screen”).', apkLink: 'Or download the Android file (.apk)', winLink: 'Or download the Windows app (.zip)', setApp: 'App',
+    postTitle: 'Till station', postSub: 'Pick the store and till number of this computer. It is kept on this device.', store: 'Store', registerNo: 'Till number', editPost: 'Edit the station', needPost: 'Pick the store and enter the till number.',
     tabLive: 'Alerts', tabHist: 'History', tabSet: 'Settings',
     onDuty: 'On duty · {s}', onDutySub: 'Ends automatically at {t}', offDuty: 'Off duty', offInfo: 'Go on duty to receive alerts.',
     startAt: 'Go on duty · {s}', lastHere: 'Last store used on this device', otherStore: 'Another store',
@@ -131,6 +135,36 @@ const ROUTE = (() => {
   if (p.includes('manager') || q === 'manager' || q === 'mobile') return 'manager';
   return 'caisse';
 })();
+
+/* ======================= Installation (même lien : web ou app) ======================= */
+const APK_URL = 'https://github.com/honoremadika/alerte-caisse/releases/latest/download/AlerteCaisse-Manager.apk';
+const WIN_URL = 'https://github.com/honoremadika/alerte-caisse/releases/latest/download/AlerteCaisse-Caisse-Windows.zip';
+let installEvt = null;
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installEvt = e; render(); });
+window.addEventListener('appinstalled', () => { installEvt = null; toast(t('installed')); render(); });
+const standalone = () => (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+const UA = navigator.userAgent || '';
+const isIOS = /iphone|ipad|ipod/i.test(UA);
+const isAndroid = /android/i.test(UA);
+function installHTML() {
+  if (standalone()) return '';
+  let h = '';
+  if (installEvt) h += `<button type="button" class="btn green" data-act="install">${esc(t('installApp'))}</button>`;
+  else if (isIOS) h += `<p class="hint">${esc(t('iosHint'))}</p>`;
+  else if (isAndroid) h += `<p class="hint">${esc(t('androidMenuHint'))}</p>`;
+  if (ROUTE === 'manager' && isAndroid) h += `<p class="hint"><a href="${APK_URL}">${esc(t('apkLink'))}</a></p>`;
+  if (ROUTE === 'caisse' && !isIOS && !isAndroid) h += `<p class="hint"><a href="${WIN_URL}">${esc(t('winLink'))}</a></p>`;
+  return h ? `<div class="install" id="installBox">${h}</div>` : '';
+}
+async function doInstall() {
+  if (!installEvt) return;
+  const ev = installEvt; installEvt = null;
+  try { await ev.prompt(); await ev.userChoice; } catch (e) { /* refusé */ }
+  render();
+}
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(() => {}); });
+}
 
 /* ======================= Sons ======================= */
 let actx = null, master = null, audioOk = false;
@@ -237,7 +271,7 @@ async function boot() {
     stopWatches(); if (unsubProfile) { unsubProfile(); unsubProfile = null; }
     // Rien ne doit rester de la session précédente (autre caissier, autre manager).
     S.store = null; S.mine = []; S.onDuty = []; S.active = []; S.history = []; S.loadedActive = false;
-    watchedStore = null; ui.tab = 'live'; ui.picking = false; ui.sending = false;
+    watchedStore = null; watchedPost = null; ui.editPost = false; ui.tab = 'live'; ui.picking = false; ui.sending = false;
     Object.keys(seen).forEach((k) => delete seen[k]);
     $('flash').hidden = true; $('alarm').hidden = true; $('modal').hidden = true;
     ringStop();
@@ -257,11 +291,8 @@ async function startWatches() {
   stopWatches();
   if (!profile) return;
   try { stores = await B.listStores(); } catch (e) { stores = []; }
-  if (ROUTE === 'caisse' && profile.role === 'cashier' && profile.storeId) {
-    unsubs.push(B.watchStore(profile.storeId, (s) => { S.store = s; render(); }));
-    unsubs.push(B.watchMyAlerts(profile, (list) => { S.mine = list; watchTaken(); render(); }, onWatchError));
-    unsubs.push(B.watchManagersOnDuty(profile.storeId, (list) => { S.onDuty = list; render(); }, onWatchError));
-  }
+  watchedPost = null;
+  if (ROUTE === 'caisse' && profile.role === 'cashier') watchCaisse();
   if (ROUTE === 'manager' && profile.role === 'manager') watchManagerStore();
   render();
 }
@@ -311,6 +342,7 @@ function renderLogin(root) {
       <button type="button" data-act="togglePw" aria-label="${esc(loginShow ? t('hide') : t('show'))}">${esc(loginShow ? t('hide') : t('show'))}</button></div></div>
     ${loginErr ? `<p class="error" role="alert">${esc(loginErr)}</p>` : ''}
     <button type="submit" class="btn primary big" ${loginBusy ? 'disabled' : ''}>${esc(loginBusy ? t('loading') : t('signIn'))}</button>
+    ${installHTML()}
   </form></div>`;
   $('loginForm').addEventListener('submit', onLogin);
 }
@@ -351,12 +383,61 @@ function openPasswordModal() {
 }
 
 /* ======================= CAISSE ======================= */
+// Poste = magasin + numéro de caisse de CET ordinateur (liste déroulante des 40 magasins).
+function station() {
+  if (!profile) return null;
+  const st = local.get('station:' + profile.uid, null);
+  if (st && st.storeId && st.register) return st;
+  if (profile.storeId && profile.register) return { storeId: profile.storeId, register: profile.register };
+  return null;
+}
+const cashierMe = () => { const st = station(); return st ? { ...profile, storeId: st.storeId, register: String(st.register) } : null; };
+let watchedPost = null;
+function watchCaisse() {
+  const me = cashierMe();
+  const key = me ? me.storeId + '|' + me.register : null;
+  if (key === watchedPost) return;
+  stopWatches(); watchedPost = key; S.store = null; S.mine = []; S.onDuty = [];
+  if (!me) return;
+  unsubs.push(B.watchStore(me.storeId, (x) => { S.store = x; render(); }));
+  unsubs.push(B.watchMyAlerts(me, (list) => { S.mine = list; watchTaken(); render(); }, onWatchError));
+  unsubs.push(B.watchManagersOnDuty(me.storeId, (list) => { S.onDuty = list; render(); }, onWatchError));
+}
+function allStoresOptions(sel) {
+  return `<option value="" ${sel ? '' : 'selected'} disabled>${esc(t('pickStore'))}</option>` +
+    stores.map((x) => `<option value="${esc(x.id)}" ${x.id === sel ? 'selected' : ''}>${esc(x.name || x.id)}</option>`).join('');
+}
+function renderPost(root) {
+  const cur = station() || {};
+  root.innerHTML = `<div class="center"><form class="card" id="postForm" novalidate>
+    <div class="top"><div class="logo"><i>${logoSvg}</i><div><b>${esc(t('postTitle'))}</b><span>${esc(profile.name)}</span></div></div>${langSwitch()}</div>
+    <p class="hint">${esc(t('postSub'))}</p>
+    <div class="field"><label for="pStore">${esc(t('store'))}</label><select id="pStore">${allStoresOptions(cur.storeId || '')}</select></div>
+    <div class="field"><label for="pReg">${esc(t('registerNo'))}</label><input id="pReg" inputmode="numeric" maxlength="3" value="${esc(cur.register || '')}" placeholder="1"></div>
+    <p class="error" id="pErr" hidden role="alert"></p>
+    <button type="submit" class="btn primary big">${esc(t('save'))}</button>
+    ${station() ? `<button type="button" class="btn" data-act="cancelPost">${esc(t('cancel'))}</button>` : ''}
+    <button type="button" class="btn" data-act="logout">${esc(t('signOut'))}</button>
+  </form></div>`;
+  $('postForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const storeId = $('pStore').value, reg = $('pReg').value.trim();
+    if (!storeId || !/^[0-9A-Za-z]{1,3}$/.test(reg)) { const er = $('pErr'); er.textContent = t('needPost'); er.hidden = false; return; }
+    local.set('station:' + profile.uid, { storeId, register: reg });
+    ui.editPost = false; render();
+  });
+}
 function caisseTypes() {
   const raw = S.store && Array.isArray(S.store.alertTypes) ? S.store.alertTypes.filter((x) => x && x.key) : [];
   return raw.length ? raw.map((x) => ({ key: x.key, fr: x.fr || x.key, en: x.en || x.fr || x.key })) : DEFAULT_TYPES;
 }
 function renderCaisse(root) {
-  if (!profile.storeId) { renderMessage(root, t('noStore')); return; }
+  if (!station() || ui.editPost) {
+    if (!(document.activeElement && document.activeElement.closest && document.activeElement.closest('#postForm'))) renderPost(root);
+    return;
+  }
+  watchCaisse();
+  const post = station();
   const types = caisseTypes();
   if (!types.find((x) => x.key === ui.selected)) ui.selected = types[0].key;
   const keepMsg = $('cMsg') ? $('cMsg').value : '';
@@ -365,12 +446,13 @@ function renderCaisse(root) {
   root.innerHTML = `<div class="desk">
     <aside class="side">
       <div class="logo"><i>${logoSvg}</i><div><b>Alerte Caisse</b><span>${esc(t('appCaisse'))}</span></div></div>
-      <div class="who"><span class="muted">${esc(storeName(profile.storeId))}</span><span class="big">${esc(t('register', { n: profile.register || '?' }))}</span><span>${esc(profile.name)}</span></div>
+      <div class="who"><span class="muted">${esc(storeName(post.storeId))}</span><span class="big">${esc(t('register', { n: post.register }))}</span><span>${esc(profile.name)}</span></div>
       <div style="display:grid;gap:8px"><h3>${esc(t('managersOnDuty'))}</h3>
         <div class="duty-list">${onDuty.length ? onDuty.map((d) => `<div><span class="dot"></span>${esc(d.name)}</div>`).join('') : `<div class="muted">${esc(t('noneOnDuty'))}</div>`}</div></div>
       <div class="foot">${langSwitch()}
+        <button type="button" class="sbtn" data-act="editPost">${esc(t('editPost'))}</button>
         <button type="button" class="sbtn" data-act="password">${esc(t('changePw'))}</button>
-        <button type="button" class="sbtn logout" data-act="logout">${esc(t('signOut'))}</button></div>
+        <button type="button" class="sbtn logout" data-act="logout">${esc(t('signOut'))}</button>${installHTML()}</div>
     </aside>
     <main class="desk-main">
       ${onDuty.length ? '' : `<div class="banner">${esc(t('noMgr'))}</div>`}
@@ -405,11 +487,11 @@ function watchTaken() {
   });
 }
 async function caisseSend() {
-  if (ui.sending || !profile) return;
+  if (ui.sending || !profile || !cashierMe()) return;
   const ty = caisseTypes().find((x) => x.key === ui.selected) || DEFAULT_TYPES[DEFAULT_TYPES.length - 1];
   ensureAudio();
   ui.sending = true; render();
-  try { await B.sendAlert(profile, ty, $('cMsg') ? $('cMsg').value : ''); if ($('cMsg')) $('cMsg').value = ''; toast(t('sent')); }
+  try { await B.sendAlert(cashierMe(), ty, $('cMsg') ? $('cMsg').value : ''); if ($('cMsg')) $('cMsg').value = ''; toast(t('sent')); }
   catch (e) { console.error(e); toast(/permission/.test(String(e.code)) ? t('errDenied') : t('sendFail')); }
   finally { ui.sending = false; render(); }
 }
@@ -544,6 +626,7 @@ function setHTML() {
     <span class="btn file-btn">${esc(t('importSound'))}<input type="file" id="mFile" accept="audio/*" aria-label="${esc(t('importSound'))}"></span>
     <p class="hint">${esc(t('customOnly'))}</p>
     <div class="range"><span>${esc(t('volume'))}</span><input type="range" id="mVol" min="10" max="100" step="5" value="${p.volume}"><span class="tab-nums" id="mVolV">${p.volume} %</span></div></div>
+    ${installHTML() ? `<div class="group"><h2>${esc(t('setApp'))}</h2>${installHTML()}</div>` : ''}
     <div class="group"><h2>${esc(t('setAccount'))}</h2><p>${esc(profile.name)}${profile.loginId ? ` · <span class="hint">${esc(profile.loginId)}</span>` : ''}</p>
       <button type="button" class="btn" data-act="password">${esc(t('changePw'))}</button>
       <button type="button" class="btn red" data-act="logout">${esc(t('signOut'))}</button>
@@ -606,7 +689,10 @@ document.addEventListener('click', async (e) => {
   }
   if (act === 'password') { openPasswordModal(); return; }
   if (act === 'closeModal') { $('modal').hidden = true; $('modal').innerHTML = ''; return; }
+  if (act === 'install') { doInstall(); return; }
   if (act === 'send') { caisseSend(); return; }
+  if (act === 'editPost') { ui.editPost = true; render(); return; }
+  if (act === 'cancelPost') { ui.editPost = false; render(); return; }
   if (act === 'unlock') { unlockAudio(); render(); return; }
   if (act === 'endDuty') { endDuty(); return; }
   if (act === 'other') { ui.picking = true; render(); return; }

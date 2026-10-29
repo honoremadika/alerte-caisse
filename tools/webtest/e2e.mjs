@@ -32,6 +32,14 @@ ok('Identifiant inconnu → refusé', (await text(caisse)).includes('Identifiant
 await login(caisse, 'me ya', 'caisse123');
 ok('Identifiant avec espace → format expliqué', (await text(caisse)).includes('Identifiant invalide'));
 await login(caisse, 'Meya', 'caisse123');
+await caisse.waitForSelector('#postForm', { timeout: 3000 }).catch(() => {});
+const nOpts = await caisse.evaluate(() => document.querySelectorAll('#pStore option:not([disabled])').length);
+const optTxt = await caisse.evaluate(() => [...document.querySelectorAll('#pStore option')].map((o) => o.textContent).join('|'));
+ok('Poste : liste déroulante des 40 magasins', nOpts === 40 && optTxt.includes('KM 01 · Gombe') && optTxt.includes('KM 81 · UPN') && optTxt.includes('KM 06 · Limete'), nOpts + ' magasins');
+await caisse.click('#postForm button[type=submit]'); await wait(100);
+ok('Poste : magasin obligatoire', (await text(caisse)).includes('Choisissez le magasin'));
+await caisse.selectOption('#pStore', 'km06'); await caisse.fill('#pReg', '1');
+await caisse.click('#postForm button[type=submit]');
 await caisse.waitForSelector('.desk', { timeout: 3000 }).catch(() => {});
 let tc = await text(caisse);
 ok('Connexion par identifiant (majuscule tolérée)', tc.includes('Caisse 1') && tc.includes('KM 06 · Limete') && tc.includes('Meya'));
@@ -117,6 +125,20 @@ await mgr.check('#tone-carillon'); await wait(200);
 ok('Choix de la sonnerie mémorisé', await mgr.evaluate(() => localStorage.getItem('ac2_tone') === '"carillon"'));
 await mgr.screenshot({ path: SHOTS + '/5-manager-reglages.png' });
 
+// Changement de poste : une alerte de KM 14 ne fait PAS sonner un manager de KM 06
+await caisse.click('[data-act=editPost]'); await caisse.waitForSelector('#postForm');
+await caisse.selectOption('#pStore', 'km14'); await caisse.fill('#pReg', '2');
+await caisse.click('#postForm button[type=submit]'); await caisse.waitForSelector('.desk');
+tc = await text(caisse);
+ok('Poste modifié : KM 14 · Lemba, caisse 2', tc.includes('KM 14 · Lemba') && tc.includes('Caisse 2'));
+await caisse.keyboard.press('1'); await caisse.click('[data-act=send]'); await wait(600);
+const km14ring = await mgr.evaluate(() => !document.getElementById('alarm').hidden);
+ok('Alerte de KM 14 : le manager de KM 06 ne sonne pas', !km14ring);
+await caisse.click('[data-cancel]'); await wait(400);
+await caisse.click('[data-act=editPost]'); await caisse.waitForSelector('#postForm');
+await caisse.selectOption('#pStore', 'km06'); await caisse.fill('#pReg', '1');
+await caisse.click('#postForm button[type=submit]'); await caisse.waitForSelector('.desk');
+
 // Annulation côté caisse
 await caisse.keyboard.press('1'); await caisse.click('[data-act=send]'); await wait(500);
 await caisse.click('[data-cancel]'); await wait(500);
@@ -164,6 +186,24 @@ await caisse.click('[data-lang=fr]');
 // ---------- Petit écran caisse ----------
 await caisse.setViewportSize({ width: 700, height: 700 }); await wait(150);
 ok('Caisse : pas de débordement horizontal en petite fenêtre', await caisse.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1));
+
+// ---------- Même lien : version web + installation (téléphone Android) ----------
+const android = await browser.newContext({ locale: 'fr-FR', userAgent: 'Mozilla/5.0 (Linux; Android 14; SM-A145P) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36', viewport: { width: 390, height: 844 } });
+await android.addInitScript({ path: path.join(path.dirname(new URL(import.meta.url).pathname), 'mock-backend.js') });
+const ap = await android.newPage(); watchConsole(ap, 'android');
+await ap.goto(BASE + '/app.html?app=manager'); await ap.waitForSelector('#loginForm');
+let ta = await text(ap);
+ok('Téléphone Android : même page web, lien APK proposé', ta.includes('télécharger le fichier Android (.apk)') && ta.includes('Installer l’application'));
+const manifest = await ap.evaluate(() => (document.querySelector('link[rel=manifest]') || {}).href || '');
+ok('Manifest de l’app Manager (installable)', manifest.endsWith('/manifest-manager.json'));
+await ap.evaluate(() => { const e = new Event('beforeinstallprompt'); e.prompt = async () => { window.__prompted = true; }; e.userChoice = Promise.resolve({ outcome: 'accepted' }); window.dispatchEvent(e); });
+await wait(150);
+ok('Bouton « Installer l’app sur cet appareil » quand le téléphone le permet', (await text(ap)).includes('Installer l’app sur cet appareil'));
+await ap.click('[data-act=install]'); await wait(150);
+ok('Le bouton lance l’installation', await ap.evaluate(() => window.__prompted === true));
+const mres = await ap.evaluate(async () => { const r = await fetch('/manifest-manager.json'); const j = await r.json(); return j.start_url + '|' + j.display + '|' + j.icons.length; });
+ok('Manifest valide (start_url /manager, plein écran, 3 icônes)', mres === '/manager|standalone|3', mres);
+await android.close();
 
 ok('Aucune erreur JavaScript', consoleErrors.length === 0, consoleErrors.slice(0, 5).join(' | '));
 await browser.close();

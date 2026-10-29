@@ -11,11 +11,11 @@
     },
     logins: { meya: 'meya@gmail.com', honey: 'honey@gmail.com', ceda: 'ceda@test.app' },
     users: {
-      'u-meya': { name: 'Meya', role: 'cashier', storeId: 'km06', register: '1', loginId: 'meya' },
+      'u-meya': { name: 'Meya', role: 'cashier', loginId: 'meya' },
       'u-honey': { name: 'Honey', role: 'manager', storeIds: ['km01', 'km06', 'km14'], lang: 'fr', loginId: 'honey' },
       'u-ceda': { name: 'Ceda', role: 'manager', storeIds: ['km06'], loginId: 'ceda' },
     },
-    stores: { km01: { name: 'KM 01 · Gombe' }, km06: { name: 'KM 06 · Limete' }, km14: { name: 'KM 14 · Lemba' } },
+    stores: Object.fromEntries([[1,'Gombe'],[3,'Kabambare'],[4,'Bandalungwa'],[5,'Ngaliema'],[6,'Limete'],[7,'Kitambo'],[8,'Victoire'],[9,'Ozone'],[10,'Masina'],[11,'Matadi'],[13,'Triangle'],[14,'Lemba'],[15,'City Moderne'],[16,'Boulevard'],[17,'Mimosa'],[18,'Kapela'],[20,'Cell Point'],[21,'Bon Marché'],[22,'Boma'],[23,'Kingasani'],[24,'Tata Raphel'],[28,'Bibwa'],[29,'Debonhomme'],[32,'Righini'],[35,'Mont-Ngafula'],[36,'Selembao'],[39,'La Promenade'],[40,'Matate'],[45,'Coca Matadi'],[46,'Kasa Vubu'],[48,'Pompage'],[67,'Lingwala'],[68,'Kim Pese'],[70,'Super Lemba'],[74,'Aqua Splash'],[75,'Kabambare'],[76,'Mariano'],[77,'Entrée Plaza'],[78,'Terre Jaune'],[81,'UPN']].map(([n,x]) => { const c = String(n).padStart(2,'0'); return ['km'+c, { name: 'KM '+c+' · '+x }]; })),
     alerts: {},
     seq: 1,
   });
@@ -58,9 +58,9 @@
     watchStore(id, cb) { return watch(() => cb(db.stores[id] ? { id, ...db.stores[id] } : null)); },
     async sendAlert(p, type, message) {
       await delay(); const uid = me(); const u = db.users[uid];
-      if (u.role !== 'cashier' || p.storeId !== u.storeId) throw err('permission-denied');
+      if (u.role !== 'cashier' || !db.stores[p.storeId]) throw err('permission-denied');
       const id = 'a' + db.seq++;
-      db.alerts[id] = { storeId: u.storeId, type: type.key, typeFr: type.fr, typeEn: type.en, message: String(message || '').trim().slice(0, 140), register: String(u.register), cashierId: uid, cashierName: u.name, status: 'open', createdAt: now() };
+      db.alerts[id] = { storeId: p.storeId, type: type.key, typeFr: type.fr, typeEn: type.en, message: String(message || '').trim().slice(0, 140), register: String(p.register), cashierId: uid, cashierName: u.name, status: 'open', createdAt: now() };
       save();
     },
     watchMyAlerts(p, cb) { return watch(() => cb(alerts().filter((a) => a.storeId === p.storeId && a.cashierId === p.uid && ['open', 'taken'].includes(a.status)).sort((x, y) => y.createdAt - x.createdAt))); },

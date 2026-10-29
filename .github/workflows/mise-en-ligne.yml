@@ -76,8 +76,11 @@ jobs:
       - name: Compiler l'APK
         run: |
           flutter pub get
-          flutter build apk --release -t lib/main_manager.dart
-          mkdir -p out && cp build/app/outputs/flutter-apk/app-release.apk out/AlerteCaisse-Manager.apk
+          # Une APK par processeur : ~20 Mo au lieu de 55 Mo (s'installe sur les téléphones avec peu de place).
+          flutter build apk --release --split-per-abi -t lib/main_manager.dart
+          mkdir -p out
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk out/AlerteCaisse-Manager.apk
+          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk out/AlerteCaisse-Manager-ancien-telephone.apk
       - uses: actions/upload-artifact@v4
         with:
           name: android

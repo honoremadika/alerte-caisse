@@ -73,14 +73,40 @@ jobs:
           flutterfire configure --yes --project="$PROJECT_ID" --platforms=android \
             --android-package-name="$ORG.alerte_caisse" \
             --service-account="$RUNNER_TEMP/sa.json" --overwrite-firebase-options
-      - name: Compiler l'APK
+      - name: Clé de signature Play Store
+        env:
+          SIGNING: ${{ secrets.ANDROID_SIGNING }}
+        run: |
+          # Secret ANDROID_SIGNING = "motdepasse:fichier .p12 en base64" (une seule fois, voir docs/play-store).
+          if [ -n "$SIGNING" ]; then
+            PW="${SIGNING%%:*}"; echo "::add-mask::$PW"
+            echo "${SIGNING#*:}" | base64 -d > "$RUNNER_TEMP/upload.p12"
+            echo "UPLOAD_KEYSTORE=$RUNNER_TEMP/upload.p12" >> "$GITHUB_ENV"
+            echo "UPLOAD_KEYSTORE_PASSWORD=$PW" >> "$GITHUB_ENV"
+            echo "Signature : clé Play Store" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning::Secret ANDROID_SIGNING absent : app signée en mode test, pas envoyable au Play Store."
+          fi
+      - name: Compiler l'app Android (Play Store + APK)
         run: |
           flutter pub get
-          # Une APK par processeur : ~20 Mo au lieu de 55 Mo (s'installe sur les téléphones avec peu de place).
-          flutter build apk --release --split-per-abi -t lib/main_manager.dart
+          dart run flutter_launcher_icons
+          BUILD=$((100 + GITHUB_RUN_NUMBER))   # numéro de version croissant exigé par le Play Store
+          set -o pipefail
+          if ! flutter build appbundle --release --build-number=$BUILD -t lib/main_manager.dart 2>&1 | tee build.log; then
+            grep -iE "error|exception|failed|what went wrong" build.log | head -30 | while IFS= read -r l; do echo "::error::$l"; done
+            exit 1
+          fi
+          # Une APK par processeur : ~20 Mo au lieu de 55 Mo (téléchargement direct, hors Play Store).
+          flutter build apk --release --split-per-abi --build-number=$BUILD -t lib/main_manager.dart
           mkdir -p out
+          cp build/app/outputs/bundle/release/app-release.aab out/AlerteManager-PlayStore.aab
           cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk out/AlerteCaisse-Manager.apk
           cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk out/AlerteCaisse-Manager-ancien-telephone.apk
+          # Vérifications : signature, version et permissions réellement présentes dans l'app.
+          AAPT=$(ls "$ANDROID_HOME"/build-tools/*/aapt2 | tail -1)
+          "$AAPT" dump badging out/AlerteCaisse-Manager.apk | grep -E "^package|targetSdk|uses-permission|application-label:" | tee -a "$GITHUB_STEP_SUMMARY"
+          keytool -printcert -jarfile out/AlerteManager-PlayStore.aab | grep -E "Owner|SHA256" | tee -a "$GITHUB_STEP_SUMMARY" || true
       - uses: actions/upload-artifact@v4
         with:
           name: android
@@ -155,11 +181,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p files
-          find dl -type f \( -name '*.apk' -o -name '*.zip' \) -exec cp {} files/ \;
+          find dl -type f \( -name '*.apk' -o -name '*.zip' -o -name '*.aab' \) -exec cp {} files/ \;
           ls -la files
           VERSION=$(grep '^version:' pubspec.yaml | awk '{print $2}' | cut -d+ -f1)
           TAG="v$VERSION-$GITHUB_RUN_NUMBER"
-          gh release create "$TAG" files/* --repo "$GITHUB_REPOSITORY" --title "Alerte Caisse $VERSION" --notes "App Manager (Android) et App Caisse (Windows)." --latest
+          gh release create "$TAG" files/* --repo "$GITHUB_REPOSITORY" --title "Alerte Caisse $VERSION" --notes "App Manager (Android : .aab pour le Play Store, .apk en direct) et App Caisse (Windows)." --latest
       - name: Configuration web (Firebase)
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json

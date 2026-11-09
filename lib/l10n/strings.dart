@@ -66,6 +66,11 @@ const Map<String, Map<String, String>> _t = {
   'passwordChanged': {'fr': 'Mot de passe modifié.', 'en': 'Password changed.'},
   'save': {'fr': 'Enregistrer', 'en': 'Save'},
   'lastUsed': {'fr': 'dernier utilisé', 'en': 'last used'},
+  'ringtone': {'fr': 'Sonnerie', 'en': 'Ringtone'},
+  'testTone': {'fr': 'Écouter', 'en': 'Play'},
+  'toneTestTitle': {'fr': '🔔 Essai de sonnerie', 'en': '🔔 Ringtone test'},
+  'toneTestBody': {'fr': 'Voici le son des alertes des caisses.', 'en': 'This is how till alerts will sound.'},
+  'close': {'fr': 'Fermer', 'en': 'Close'},
   'signOut': {'fr': 'Se déconnecter', 'en': 'Sign out'},
   'noProfile': {
     'fr': "Ce compte n'a pas encore de profil (caissier ou manager).\nDemandez à l'administrateur de le configurer.",

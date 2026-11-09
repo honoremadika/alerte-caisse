@@ -23,6 +23,7 @@ import 'notification_service.dart';
 const _kStore = 'ac_store';
 const _kLang = 'ac_lang';
 const _kUntil = 'ac_until';
+const kToneKey = 'ac_tone';
 
 class DutyBackground {
   static bool get supported => !kIsWeb && Platform.isAndroid;
@@ -63,8 +64,12 @@ class DutyBackground {
       await FlutterForegroundTask.requestNotificationPermission();
     }
     // Sans cela, certains Android (Tecno, Infinix, Xiaomi…) coupent l'écoute.
-    if (!await FlutterForegroundTask.isIgnoringBatteryOptimizations) {
-      await FlutterForegroundTask.requestIgnoreBatteryOptimization();
+    // On ouvre une seule fois la page des réglages « batterie » (règle Play Store :
+    // pas de demande directe d'exemption).
+    if (!await FlutterForegroundTask.isIgnoringBatteryOptimizations &&
+        await FlutterForegroundTask.getData<bool>(key: 'ac_battery_asked') != true) {
+      await FlutterForegroundTask.saveData(key: 'ac_battery_asked', value: true);
+      await FlutterForegroundTask.openIgnoreBatteryOptimizationSettings();
     }
     await FlutterForegroundTask.saveData(key: _kStore, value: storeId);
     await FlutterForegroundTask.saveData(key: _kLang, value: lang);
@@ -83,6 +88,16 @@ class DutyBackground {
       notificationText: text,
       callback: dutyTaskCallback,
     );
+  }
+
+  /// Sonnerie choisie (lue aussi par l'écoute en arrière-plan).
+  static Future<String> tone() async {
+    if (!supported) return 'alarme';
+    return await FlutterForegroundTask.getData<String>(key: kToneKey) ?? 'alarme';
+  }
+
+  static Future<void> setTone(String t) async {
+    if (supported) await FlutterForegroundTask.saveData(key: kToneKey, value: t);
   }
 
   static Future<void> stop() async {
@@ -104,6 +119,7 @@ class _DutyTaskHandler extends TaskHandler {
   final Map<String, DateTime> _lastRing = {};
   final Map<String, int> _relances = {};
   String _lang = 'fr';
+  String _tone = 'alarme';
   int _until = 0;
   String? _uid;
 
@@ -116,6 +132,7 @@ class _DutyTaskHandler extends TaskHandler {
     final store = await FlutterForegroundTask.getData<String>(key: _kStore) ?? '';
     _lang = await FlutterForegroundTask.getData<String>(key: _kLang) ?? 'fr';
     _until = await FlutterForegroundTask.getData<int>(key: _kUntil) ?? 0;
+    _tone = await FlutterForegroundTask.getData<String>(key: kToneKey) ?? 'alarme';
     if (store.isEmpty) return;
 
     _sub = FirebaseFirestore.instance
@@ -171,10 +188,12 @@ class _DutyTaskHandler extends TaskHandler {
 
   void _ring(String id, Map<String, dynamic> d, int relance) {
     final reg = d['register'] ?? '';
+    FlutterForegroundTask.getData<String>(key: kToneKey).then((t) => _tone = t ?? 'alarme');
     final label = _lang == 'en' ? (d['typeEn'] ?? d['typeFr'] ?? '') : (d['typeFr'] ?? '');
     final msg = (d['message'] ?? '').toString();
     NotificationService.showAlarm({
       'alertId': id,
+      'tone': _tone,
       'title': relance > 0
           ? _t('🚨 RELANCE $relance · Caisse $reg', '🚨 REMINDER $relance · Till $reg')
           : _t('🚨 Caisse $reg', '🚨 Till $reg'),

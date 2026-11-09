@@ -1,7 +1,7 @@
 name: alerte_caisse
 description: Alertes caisse -> managers en temps réel (desktop + mobile).
 publish_to: 'none'
-version: 1.2.0+3
+version: 2.0.0+100
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
@@ -16,7 +16,6 @@ dependencies:
   flutter_local_notifications: ^18.0.1
   intl: ^0.19.0
   shared_preferences: ^2.3.2   # langue choisie, raccourci
-  geolocator: ^13.0.1          # vérification "je suis au magasin" à la prise de service
   flutter_foreground_task: ^8.14.0  # Android : reste à l'écoute pendant le service (version gratuite, sans serveur)
   # Ordinateur caissier : fenêtre flottante toujours visible + raccourci clavier global
   window_manager: ^0.4.2
@@ -27,6 +26,16 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.14.1
+
+# Icône de l'app : `dart run flutter_launcher_icons` (fait par la compilation automatique)
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: assets/icon/manager.png
+  adaptive_icon_background: "#C62828"
+  adaptive_icon_foreground: assets/icon/manager-fg.png
+  min_sdk_android: 23
 
 flutter:
   uses-material-design: true

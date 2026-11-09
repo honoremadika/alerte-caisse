@@ -121,6 +121,45 @@ class _ManagerScreenState extends State<ManagerScreen> {
     }
   }
 
+  Future<void> _chooseTone() async {
+    var current = await DutyBackground.tone();
+    if (!mounted) return;
+    final en = AppLang.instance.value == 'en';
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
+          title: Text(tr('ringtone')),
+          contentPadding: const EdgeInsets.fromLTRB(8, 16, 8, 0),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: NotificationService.tones
+                .map((t) => RadioListTile<String>(
+                      value: t,
+                      groupValue: current,
+                      title: Text(NotificationService.toneLabels[t]![en ? 1 : 0]),
+                      secondary: IconButton(
+                        tooltip: tr('testTone'),
+                        icon: const Icon(Icons.play_circle_outline),
+                        onPressed: () => NotificationService.preview(
+                            t, tr('toneTestTitle'), tr('toneTestBody')),
+                      ),
+                      onChanged: (v) async {
+                        if (v == null) return;
+                        await DutyBackground.setTone(v);
+                        setD(() => current = v);
+                      },
+                    ))
+                .toList(),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('close'))),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _take(CaisseAlert a) async {
     final other = await _alerts.take(a.id, me);
     await NotificationService.dismiss(a.id);
@@ -151,6 +190,12 @@ class _ManagerScreenState extends State<ManagerScreen> {
                 : () => Navigator.of(context).push(MaterialPageRoute(
                     builder: (_) => HistoryScreen(storeId: _storeId))),
           ),
+          if (DutyBackground.supported)
+            IconButton(
+              tooltip: tr('ringtone'),
+              icon: const Icon(Icons.music_note),
+              onPressed: _chooseTone,
+            ),
           IconButton(
             tooltip: tr('changePassword'),
             icon: const Icon(Icons.key),

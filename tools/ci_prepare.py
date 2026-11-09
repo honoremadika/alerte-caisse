@@ -36,20 +36,36 @@ android = ROOT / "android" / "app"
 if android.exists():
     raw = android / "src" / "main" / "res" / "raw"
     raw.mkdir(parents=True, exist_ok=True)
-    shutil.copy(ROOT / "assets" / "sons" / "alarme.wav", raw / "alarme.wav")
-    done.append("android/app/src/main/res/raw/alarme.wav")
+    for wav in sorted((ROOT / "assets" / "sons").glob("*.wav")):
+        shutil.copy(wav, raw / wav.name)
+        done.append(f"android/app/src/main/res/raw/{wav.name}")
+    # Garde les sons en version optimisée (sinon R8 peut les supprimer).
+    (raw / "keep.xml").write_text(
+        '<?xml version="1.0" encoding="utf-8"?>\n'
+        '<resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@raw/*" />\n',
+        encoding="utf-8")
 
+    # Permissions limitées à ce que le Play Store accepte sans formulaire spécial
+    # (seul le service « specialUse » se déclare dans la Play Console).
     PERMS = [
+        "android.permission.INTERNET",
         "android.permission.POST_NOTIFICATIONS",
-        "android.permission.USE_FULL_SCREEN_INTENT",
         "android.permission.VIBRATE",
         "android.permission.WAKE_LOCK",
-        "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.ACCESS_COARSE_LOCATION",
         # Version gratuite : écoute des alertes pendant le service
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.FOREGROUND_SERVICE_SPECIAL_USE",
+    ]
+    # Permissions qu'une bibliothèque pourrait ajouter et que le Play Store contrôle : retirées.
+    REMOVE = [
+        "android.permission.USE_FULL_SCREEN_INTENT",
         "android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.USE_EXACT_ALARM",
     ]
     SERVICE = (
         '        <service\n'
@@ -63,12 +79,16 @@ if android.exists():
     )
 
     def manifest(s: str) -> str:
+        if "xmlns:tools" not in s:
+            s = s.replace("<manifest ", '<manifest xmlns:tools="http://schemas.android.com/tools" ', 1)
         lines = "".join(
             f'    <uses-permission android:name="{p}"/>\n' for p in PERMS if p not in s
+        ) + "".join(
+            f'    <uses-permission android:name="{p}" tools:node="remove"/>\n' for p in REMOVE if p not in s
         )
         if lines:
             s = s.replace("<application", lines + "    <application", 1)
-        s = re.sub(r'android:label="[^"]*"', 'android:label="Alerte Caisse"', s, count=1)
+        s = re.sub(r'android:label="[^"]*"', 'android:label="Alerte Manager"', s, count=1)
         if "flutter_foreground_task.service.ForegroundService" not in s:
             s = s.replace("    </application>", SERVICE + "    </application>", 1)
         if "showWhenLocked" not in s:
@@ -83,8 +103,31 @@ if android.exists():
 
     DESUGAR = "com.android.tools:desugar_jdk_libs:2.1.4"
 
+    SIGNING_KTS = '''    // Clé d'envoi Play Store : fournie par la compilation automatique (secret ANDROID_SIGNING).
+    signingConfigs {
+        create("upload") {
+            val ks = System.getenv("UPLOAD_KEYSTORE")
+            if (ks != null) {
+                storeFile = file(ks)
+                storeType = "PKCS12"
+                storePassword = System.getenv("UPLOAD_KEYSTORE_PASSWORD")
+                keyAlias = "upload"
+                keyPassword = System.getenv("UPLOAD_KEYSTORE_PASSWORD")
+            }
+        }
+    }
+
+    buildTypes {'''
+
     def gradle_kts(s: str) -> str:
         s = re.sub(r"minSdk\s*=\s*[^\n]+", "minSdk = 23", s, count=1)
+        if 'create("upload")' not in s:
+            s = s.replace("    buildTypes {", SIGNING_KTS, 1)
+            s = s.replace(
+                'signingConfig = signingConfigs.getByName("debug")',
+                'signingConfig = signingConfigs.getByName(if (System.getenv("UPLOAD_KEYSTORE") != null) "upload" else "debug")',
+                1,
+            )
         if "isCoreLibraryDesugaringEnabled" not in s:
             s = s.replace("compileOptions {", "compileOptions {\n        isCoreLibraryDesugaringEnabled = true", 1)
         if DESUGAR not in s:

@@ -29,6 +29,19 @@ class NotificationService {
   static const alarmChannel = 'alertes_caisse_v1';
   static const infoChannel = 'alertes_caisse_info_v1';
 
+  /// Sonneries au choix (fichiers android/app/src/main/res/raw/<nom>.wav).
+  /// Android fixe le son d'un canal à sa création : un canal par sonnerie.
+  static const tones = ['alarme', 'sirene', 'urgence', 'bip', 'carillon'];
+  static const toneLabels = {
+    'alarme': ['Alarme', 'Alarm'],
+    'sirene': ['Sirène', 'Siren'],
+    'urgence': ['Urgence', 'Emergency'],
+    'bip': ['Bips', 'Beeps'],
+    'carillon': ['Carillon', 'Chime'],
+  };
+  static String channelFor(String? tone) =>
+      (tone == null || tone == 'alarme' || !tones.contains(tone)) ? alarmChannel : 'alertes_caisse_$tone';
+
   static bool get isSupported =>
       !kIsWeb && (Platform.isAndroid || Platform.isIOS);
 
@@ -49,17 +62,19 @@ class NotificationService {
 
     final android = _local.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
-    // Canal « alarme » : sonne même en mode silencieux/vibreur.
-    await android?.createNotificationChannel(const AndroidNotificationChannel(
-      alarmChannel,
-      'Alertes caisse',
-      description: 'Alertes urgentes envoyées par les caisses',
-      importance: Importance.max,
-      playSound: true,
-      sound: RawResourceAndroidNotificationSound('alarme'),
-      enableVibration: true,
-      audioAttributesUsage: AudioAttributesUsage.alarm,
-    ));
+    // Canaux « alarme » (un par sonnerie) : sonnent même en mode silencieux/vibreur.
+    for (final t in tones) {
+      await android?.createNotificationChannel(AndroidNotificationChannel(
+        channelFor(t),
+        t == 'alarme' ? 'Alertes caisse' : 'Alertes caisse · ${toneLabels[t]![0]}',
+        description: 'Alertes urgentes envoyées par les caisses',
+        importance: Importance.max,
+        playSound: true,
+        sound: RawResourceAndroidNotificationSound(t),
+        enableVibration: true,
+        audioAttributesUsage: AudioAttributesUsage.alarm,
+      ));
+    }
     // Canal silencieux : « Honey arrive », alerte résolue…
     await android?.createNotificationChannel(const AndroidNotificationChannel(
       infoChannel,
@@ -88,15 +103,15 @@ class NotificationService {
   static Future<void> showAlarm(Map<String, dynamic> data) async {
     await _initLocal();
     final alertId = (data['alertId'] ?? '').toString();
+    final tone = tones.contains(data['tone']) ? data['tone'] as String : 'alarme';
     final details = AndroidNotificationDetails(
-      alarmChannel,
+      channelFor(tone),
       'Alertes caisse',
       importance: Importance.max,
       priority: Priority.max,
       category: AndroidNotificationCategory.alarm,
-      fullScreenIntent: true,
       playSound: true,
-      sound: const RawResourceAndroidNotificationSound('alarme'),
+      sound: RawResourceAndroidNotificationSound(tone),
       audioAttributesUsage: AudioAttributesUsage.alarm,
       enableVibration: true,
       vibrationPattern: Int64List.fromList([0, 800, 400, 800, 400, 800]),
@@ -110,6 +125,29 @@ class NotificationService {
       data['body'] ?? '',
       NotificationDetails(android: details),
       payload: alertId,
+    );
+  }
+
+  /// Fait entendre une sonnerie (réglages) : notification de test de 8 secondes.
+  static Future<void> preview(String tone, String title, String body) async {
+    if (!isSupported) return;
+    await _initLocal();
+    await _local.show(
+      777,
+      title,
+      body,
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          channelFor(tone),
+          'Alertes caisse',
+          importance: Importance.max,
+          priority: Priority.max,
+          playSound: true,
+          sound: RawResourceAndroidNotificationSound(tone),
+          audioAttributesUsage: AudioAttributesUsage.alarm,
+          timeoutAfter: 8000,
+        ),
+      ),
     );
   }
 

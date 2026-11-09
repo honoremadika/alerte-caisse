@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alerte Manager · Confidentialité</title>
+<style>
+  :root { --bg:#fff; --fg:#1b2430; --muted:#5a6573; --line:#e3e7ec; --accent:#c62828; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#12161c; --fg:#e8ecf1; --muted:#9aa5b1; --line:#2a313b; --accent:#ef5350; } }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width:760px; margin:0 auto; padding:32px 16px 64px; }
+  h1 { font-size:1.7rem; margin:0 0 4px; } h2 { font-size:1.15rem; margin:28px 0 6px; color:var(--accent); }
+  p, li { color:var(--fg); } .muted { color:var(--muted); font-size:.9rem; }
+  hr { border:0; border-top:1px solid var(--line); margin:40px 0; }
+  a { color:var(--accent); }
+</style>
+</head>
+<body>
+<main>
+<h1>Politique de confidentialité</h1>
+<p class="muted">Applications « Alerte Manager » (Android) et « Alerte Caisse » (Windows et web) · éditeur : Genius Labs, Kinshasa (RDC) · mise à jour : 9 novembre 2026</p>
+
+<h2>À quoi sert l'application</h2>
+<p>Alerte Caisse permet à un caissier de prévenir les managers de son magasin d'un problème à la caisse. Le téléphone des managers en service sonne, et le premier qui répond « J'arrive » arrête la sonnerie des autres. L'application est réservée au personnel : les comptes sont créés par l'administrateur, il n'y a pas d'inscription publique.</p>
+
+<h2>Données utilisées</h2>
+<ul>
+  <li><strong>Compte</strong> : nom, identifiant de connexion, adresse e-mail technique du compte et rôle (caissier ou manager), magasins rattachés.</li>
+  <li><strong>Alertes</strong> : magasin, numéro de caisse, type de problème, précision facultative écrite par le caissier, heures d'envoi, de prise en charge et de résolution, nom du manager qui a répondu.</li>
+  <li><strong>Service</strong> : magasin où le manager est en service et heure de fin du service.</li>
+  <li><strong>Notifications</strong> : un identifiant technique de l'appareil pour les notifications, et les réglages enregistrés sur l'appareil (langue, sonnerie, dernier magasin utilisé).</li>
+</ul>
+<p>L'application <strong>ne collecte pas</strong> la position GPS, les contacts, les photos, le micro, ni aucune donnée de paiement. Elle n'affiche pas de publicité et ne vend ni ne partage aucune donnée à des fins commerciales.</p>
+
+<h2>Où sont gardées les données</h2>
+<p>Les données sont stockées chez Google Firebase (Authentication et Cloud Firestore, région Europe), chiffrées pendant le transfert (HTTPS). Seuls les membres du personnel connectés y ont accès, selon leur rôle : un caissier voit ses propres alertes, un manager voit les alertes des magasins qui lui sont attribués.</p>
+
+<h2>Durée de conservation et suppression</h2>
+<p>L'historique des alertes est gardé tant que le compte du magasin existe, pour le suivi du service. Pour supprimer un compte et les données qui y sont liées, ou pour toute question, écrivez à <a href="mailto:honoremadika2017@gmail.com">honoremadika2017@gmail.com</a>. La demande est traitée sous 30 jours.</p>
+
+<h2>Permissions Android</h2>
+<ul>
+  <li><strong>Notifications</strong> : faire sonner le téléphone quand une caisse appelle.</li>
+  <li><strong>Service au premier plan</strong> : pendant le service seulement, le téléphone reste à l'écoute des alertes du magasin, avec une notification permanente « En service ». Le service s'arrête à la fin du service ou après 12 heures.</li>
+  <li><strong>Internet</strong> : recevoir et envoyer les alertes.</li>
+</ul>
+
+<hr>
+
+<h1>Privacy policy</h1>
+<p class="muted">“Alerte Manager” (Android) and “Alerte Caisse” (Windows and web) · publisher: Genius Labs, Kinshasa (DRC) · updated 9 November 2026</p>
+<p>Alerte Caisse lets a cashier alert the managers of their store about a till problem. Accounts are created by the administrator for staff only.</p>
+<p><strong>Data used:</strong> account (name, login ID, technical e-mail, role, stores), alerts (store, till number, problem type, optional note, times, who responded), duty status, a device notification token, and on-device settings (language, ringtone, last store). <strong>Not collected:</strong> location, contacts, photos, microphone, payment data. No ads, no sale or sharing of data.</p>
+<p><strong>Storage:</strong> Google Firebase (Authentication, Cloud Firestore, Europe region), encrypted in transit; access limited to signed-in staff by role.</p>
+<p><strong>Deletion and contact:</strong> <a href="mailto:honoremadika2017@gmail.com">honoremadika2017@gmail.com</a>, handled within 30 days.</p>
+<p><strong>Android permissions:</strong> notifications (ringing), foreground service during duty only (listening for store alerts, ends after the shift or 12 hours), internet.</p>
+</main>
+</body>
+</html>

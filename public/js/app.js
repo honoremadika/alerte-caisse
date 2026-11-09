@@ -24,7 +24,7 @@ const T = {
     hint: 'Raccourcis : touches <kbd>1</kbd> à <kbd>9</kbd> pour choisir, <kbd>Ctrl</kbd> + <kbd>Entrée</kbd> pour envoyer.',
     myAlerts: 'Mes alertes en cours', noMine: 'Aucune alerte en cours.', waiting: 'En attente d’un manager…', coming: '{n} arrive',
     flashSub: 'Caisse {r} · {t}', noStore: 'Ce compte caissier n’a pas de magasin. Demandez à l’administrateur.',
-    installApp: 'Installer l’app sur cet appareil', installed: 'Application installée. Ouvrez-la depuis l’écran d’accueil.', iosHint: 'Pour l’installer sur iPhone : touchez Partager, puis « Sur l’écran d’accueil ».', androidMenuHint: 'Pour l’installer : menu ⋮ de Chrome → « Installer l’application » (ou « Ajouter à l’écran d’accueil »).', apkLink: 'Ou télécharger le fichier Android (.apk)', winLink: 'Ou télécharger l’app Windows (.zip)', setApp: 'Application',
+    installApp: 'Installer l’app sur cet appareil', installed: 'Application installée. Ouvrez-la depuis l’écran d’accueil.', iosHint: 'Pour l’installer sur iPhone : touchez Partager, puis « Sur l’écran d’accueil ».', androidMenuHint: 'Pour l’installer : menu ⋮ de Chrome → « Installer l’application » (ou « Ajouter à l’écran d’accueil »).', apkLink: 'Ou télécharger le fichier Android (.apk)', winLink: 'Ou installer l’app Windows (programme d’installation .exe)', setApp: 'Application',
     postTitle: 'Poste de caisse', postSub: 'Choisissez le magasin et le numéro de caisse de cet ordinateur. C’est gardé sur cet appareil.', store: 'Magasin', registerNo: 'Numéro de caisse', editPost: 'Modifier le poste', needPost: 'Choisissez le magasin et entrez le numéro de caisse.',
     tabLive: 'Alertes', tabHist: 'Historique', tabSet: 'Réglages',
     onDuty: 'En service · {s}', onDutySub: 'Fin automatique à {t}', offDuty: 'Hors service', offInfo: 'Prenez votre service pour recevoir les alertes.',
@@ -66,7 +66,7 @@ const T = {
     hint: 'Shortcuts: keys <kbd>1</kbd> to <kbd>9</kbd> to pick, <kbd>Ctrl</kbd> + <kbd>Enter</kbd> to send.',
     myAlerts: 'My open alerts', noMine: 'No open alerts.', waiting: 'Waiting for a manager…', coming: '{n} is on the way',
     flashSub: 'Till {r} · {t}', noStore: 'This cashier account has no store. Ask the administrator.',
-    installApp: 'Install the app on this device', installed: 'App installed. Open it from the home screen.', iosHint: 'To install on iPhone: tap Share, then “Add to Home Screen”.', androidMenuHint: 'To install: Chrome menu ⋮ → “Install app” (or “Add to Home screen”).', apkLink: 'Or download the Android file (.apk)', winLink: 'Or download the Windows app (.zip)', setApp: 'App',
+    installApp: 'Install the app on this device', installed: 'App installed. Open it from the home screen.', iosHint: 'To install on iPhone: tap Share, then “Add to Home Screen”.', androidMenuHint: 'To install: Chrome menu ⋮ → “Install app” (or “Add to Home screen”).', apkLink: 'Or download the Android file (.apk)', winLink: 'Or install the Windows app (.exe installer)', setApp: 'App',
     postTitle: 'Till station', postSub: 'Pick the store and till number of this computer. It is kept on this device.', store: 'Store', registerNo: 'Till number', editPost: 'Edit the station', needPost: 'Pick the store and enter the till number.',
     tabLive: 'Alerts', tabHist: 'History', tabSet: 'Settings',
     onDuty: 'On duty · {s}', onDutySub: 'Ends automatically at {t}', offDuty: 'Off duty', offInfo: 'Go on duty to receive alerts.',
@@ -138,7 +138,7 @@ const ROUTE = (() => {
 
 /* ======================= Installation (même lien : web ou app) ======================= */
 const APK_URL = 'https://github.com/honoremadika/alerte-caisse/releases/latest/download/AlerteManager-tous-telephones.apk';
-const WIN_URL = 'https://github.com/honoremadika/alerte-caisse/releases/latest/download/AlerteCaisse-Caisse-Windows.zip';
+const WIN_URL = 'https://github.com/honoremadika/alerte-caisse/releases/latest/download/AlerteCaisse-Installation.exe';
 let installEvt = null;
 window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installEvt = e; render(); });
 window.addEventListener('appinstalled', () => { installEvt = null; toast(t('installed')); render(); });

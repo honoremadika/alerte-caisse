@@ -82,7 +82,8 @@ a:focus-visible, button:focus-visible { outline: 3px solid var(--accent); outlin
       <span class="tag" data-t="tagC"></span>
       <h2 data-t="titleC"></h2>
       <p class="meta" data-t="subC"></p>
-      <a class="dl" href="https://github.com/__REPO__/releases/latest/download/AlerteCaisse-Caisse-Windows.zip"><span data-t="dlWin"></span><small>.zip</small></a>
+      <a class="dl" href="https://github.com/__REPO__/releases/latest/download/AlerteCaisse-Installation.exe"><span data-t="dlWin"></span><small>.exe · Windows 10 / 11</small></a>
+      <p class="meta"><a href="https://github.com/__REPO__/releases/latest/download/AlerteCaisse-Caisse-Windows.zip" data-t="zipAlt"></a></p>
       <ol id="stepsC"></ol>
     </section>
   </div>
@@ -102,7 +103,7 @@ const T = {
     stepsM: ['Si une ancienne version « Alerte Caisse » ou « Alerte Manager » est installée, <b>désinstalle-la d’abord</b> (sinon Android affiche « Application non installée »).', 'Ouvre ce lien sur le téléphone Android et télécharge le fichier (attends la fin du téléchargement).', 'Touche le fichier : Android demande d’autoriser l’installation depuis le navigateur. Accepte. Si Play Protect avertit : <b>Plus de détails → Installer quand même</b>. Sur Samsung, si « Blocage automatique » est actif : Paramètres → Sécurité → Blocage automatique → désactiver le temps de l’installation.', 'Ouvre l’app, connecte-toi, accepte les notifications.', 'Touche « Prendre mon service » : une notification <b>« En service »</b> reste affichée. C’est elle qui permet au téléphone de sonner, même écran verrouillé.', '<b>Important</b> : quand l’app ouvre les réglages de batterie, choisis « Alerte Manager » → <b>Sans restriction</b> (Tecno, Infinix, Xiaomi : aussi « Démarrage auto » activé).', 'Les nouvelles versions sont signalées dans l’app : touche « Mettre à jour ».'],
     tagC: 'Ordinateur', titleC: 'App Caisse', subC: 'Bulle toujours visible au-dessus du logiciel de caisse, raccourci Ctrl + Alt + A.',
     dlWin: 'Télécharger pour Windows',
-    stepsC: ['Télécharge et décompresse le fichier .zip (clic droit → Extraire tout).', 'Lance <b>alerte_caisse.exe</b>. Si Windows affiche « Windows a protégé votre ordinateur » : <b>Informations complémentaires → Exécuter quand même</b>.', 'Connecte-toi avec le compte caissier. L’app démarre ensuite avec Windows.'],
+    stepsC: ['Télécharge <b>AlerteCaisse-Installation.exe</b> et ouvre-le. Pas besoin du mot de passe administrateur.', 'Si Windows affiche « Windows a protégé votre ordinateur » : <b>Informations complémentaires → Exécuter quand même</b> (l’app n’a pas encore de certificat payant).', 'Clique sur Suivant puis Installer : l’app est ajoutée au menu Démarrer et au Bureau, et démarre avec Windows.', 'Connecte-toi avec le compte caissier et choisis le magasin et la caisse.', 'Mise à jour : relance simplement le nouveau programme d’installation, les réglages sont gardés. Désinstaller : Paramètres → Applications → Alerte Caisse.'], zipAlt: 'Sans installation : version .zip à décompresser',
     iphoneT: 'iPhone', iphoneS: 'Apple n’autorise pas l’installation d’apps par simple téléchargement. Pour l’iPhone, l’app passera par TestFlight ou l’App Store (compte Apple Developer requis). En attendant, utilisez l’app Manager dans le navigateur (lien ci-dessus).',
   },
   en: {
@@ -114,7 +115,7 @@ const T = {
     stepsM: ['If an older “Alerte Caisse” or “Alerte Manager” is installed, <b>uninstall it first</b> (otherwise Android says “App not installed”).', 'Open this link on the Android phone and download the file (wait until it finishes).', 'Tap the file: Android asks to allow installs from the browser. Accept. If Play Protect warns: <b>More details → Install anyway</b>. On Samsung with “Auto Blocker” on: Settings → Security → Auto Blocker → turn off during install.', 'Open the app, sign in, allow notifications.', 'Tap “Go on duty”: an <b>“On duty”</b> notification stays visible. It is what lets the phone ring, even when locked.', '<b>Important</b>: when the app opens battery settings, pick “Alerte Manager” → <b>Unrestricted</b> (Tecno, Infinix, Xiaomi: also enable “Auto-start”).', 'New versions are shown in the app: tap “Update”.'],
     tagC: 'Computer', titleC: 'Till app', subC: 'Bubble always on top of the till software, shortcut Ctrl + Alt + A.',
     dlWin: 'Download for Windows',
-    stepsC: ['Download and unzip the .zip file (right-click → Extract all).', 'Run <b>alerte_caisse.exe</b>. If Windows shows “Windows protected your PC”: <b>More info → Run anyway</b>.', 'Sign in with the cashier account. The app then starts with Windows.'],
+    stepsC: ['Download <b>AlerteCaisse-Installation.exe</b> and open it. No administrator password needed.', 'If Windows shows “Windows protected your PC”: <b>More info → Run anyway</b> (the app has no paid certificate yet).', 'Click Next then Install: the app is added to the Start menu and desktop, and starts with Windows.', 'Sign in with the cashier account and pick the store and till.', 'Update: just run the new installer, settings are kept. Uninstall: Settings → Apps → Alerte Caisse.'], zipAlt: 'No install: .zip version to unzip',
     iphoneT: 'iPhone', iphoneS: 'Apple does not allow installing apps by simple download. For iPhone, the app will go through TestFlight or the App Store (Apple Developer account required). Meanwhile, use the Manager app in the browser (link above).',
   },
 };

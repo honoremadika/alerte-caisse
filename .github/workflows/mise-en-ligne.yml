@@ -134,6 +134,9 @@ jobs:
         run: |
           flutter create --platforms=windows --org "$ORG" --project-name alerte_caisse .
           python tools/ci_prepare.py
+          cp assets/icon/caisse.ico windows/runner/resources/app_icon.ico   # icône de l'app
+          # Nom affiché par Windows (Gestionnaire des tâches, propriétés du fichier)
+          sed -i 's/"FileDescription", "[^"]*"/"FileDescription", "Alerte Caisse"/; s/"ProductName", "[^"]*"/"ProductName", "Alerte Caisse"/; s/"CompanyName", "[^"]*"/"CompanyName", "Genius Labs"/' windows/runner/Runner.rc
       - name: Relier Firebase
         shell: bash
         env:
@@ -156,8 +159,21 @@ jobs:
             grep -iE "error|exception|failed" build.log | head -30 | while IFS= read -r l; do echo "::error::$l"; done
             exit 1
           fi
+          REL=build/windows/x64/runner/Release
+          # Bibliothèques Microsoft Visual C++ fournies avec l'app : elle démarre même sur un PC
+          # où elles ne sont pas installées (sinon « VCRUNTIME140.dll introuvable »).
+          for d in msvcp140.dll vcruntime140.dll vcruntime140_1.dll; do cp "/c/Windows/System32/$d" "$REL/"; done
           mkdir -p out
-          cd build/windows/x64/runner/Release && 7z a -tzip ../../../../../out/AlerteCaisse-Caisse-Windows.zip .
+          (cd "$REL" && 7z a -tzip ../../../../../out/AlerteCaisse-Caisse-Windows.zip .)
+      - name: Programme d'installation (setup .exe)
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress | Out-Null }
+          $v = ((Select-String -Path pubspec.yaml -Pattern '^version:\s*([0-9.]+)').Matches[0].Groups[1].Value) + ".$env:GITHUB_RUN_NUMBER"
+          & $iscc "/DAppVersion=$v" "/DSourceDir=$PWD\build\windows\x64\runner\Release" "/DOutDir=$PWD\out" installer\alerte-caisse.iss
+          if ($LASTEXITCODE -ne 0) { Write-Output "::error::Échec du programme d'installation"; exit 1 }
+          Get-ChildItem out | Format-Table Name, Length
       - uses: actions/upload-artifact@v4
         with:
           name: windows
@@ -186,7 +202,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p files
-          find dl -type f \( -name '*.apk' -o -name '*.zip' -o -name '*.aab' \) -exec cp {} files/ \;
+          find dl -type f \( -name '*.apk' -o -name '*.zip' -o -name '*.aab' -o -name '*.exe' \) -exec cp {} files/ \;
           ls -la files
           VERSION=$(grep '^version:' pubspec.yaml | awk '{print $2}' | cut -d+ -f1)
           TAG="v$VERSION-$GITHUB_RUN_NUMBER"

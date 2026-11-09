@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -14,6 +15,7 @@ import '../services/duty_background.dart';
 import '../services/duty_service.dart';
 import '../services/notification_service.dart';
 import '../services/store_service.dart';
+import '../services/station_service.dart';
 import '../services/update_service.dart';
 import '../widgets/lang_menu.dart';
 import 'history_screen.dart';
@@ -140,6 +142,48 @@ class _ManagerScreenState extends State<ManagerScreen> {
     }
   }
 
+  /// Codes à taper une seule fois sur les PC de caisse de ses magasins.
+  Future<void> _showTillCodes() async {
+    final codes = await StationService.instance.codesFor(widget.user.storeIds);
+    final stores = await StoreService().list(widget.user.storeIds);
+    if (!mounted) return;
+    final rows = stores.where((s) => codes.containsKey(s.id)).toList();
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('tillCodes')),
+        content: SizedBox(
+          width: 360,
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(tr('tillCodesIntro')),
+            const SizedBox(height: 8),
+            if (rows.isEmpty) Text(tr('noCodes')),
+            Flexible(
+              child: ListView(shrinkWrap: true, children: [
+                for (final st in rows)
+                  ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(st.name),
+                    subtitle: SelectableText(codes[st.id]!,
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: 1.5)),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.copy, size: 18),
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: codes[st.id]!));
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('copied'))));
+                      },
+                    ),
+                  ),
+              ]),
+            ),
+          ]),
+        ),
+        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('close')))],
+      ),
+    );
+  }
+
   Future<void> _chooseTone() async {
     var current = await DutyBackground.tone();
     if (!mounted) return;
@@ -208,6 +252,11 @@ class _ManagerScreenState extends State<ManagerScreen> {
                 ? null
                 : () => Navigator.of(context).push(MaterialPageRoute(
                     builder: (_) => HistoryScreen(storeId: _storeId))),
+          ),
+          IconButton(
+            tooltip: tr('tillCodes'),
+            icon: const Icon(Icons.point_of_sale),
+            onPressed: _showTillCodes,
           ),
           if (DutyBackground.supported)
             IconButton(

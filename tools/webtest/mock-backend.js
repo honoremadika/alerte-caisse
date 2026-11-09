@@ -85,6 +85,7 @@
       Object.assign(u, { onDuty: true, dutyStoreId: storeId, dutyUntil: until }); save();
     },
     async endDuty(uid) { await delay(); if (me() !== uid) throw err('permission-denied'); const u = db.users[uid]; u.onDuty = false; delete u.dutyUntil; save(); },
+    async storeCodes(ids) { const u = db.users[session()]; return Object.fromEntries(ids.filter((id) => (u.storeIds || []).includes(id)).map((id) => [id, id.toUpperCase() + '-TEST23'])); },
     async saveLang(uid, l) { if (session() === uid) { db.users[uid].lang = l; save(); } },
   };
 })();

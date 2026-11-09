@@ -38,7 +38,7 @@ const T = {
     already: '{n} a déjà répondu', alarmK: 'Alerte caisse', relance: 'Relance', snooze: 'Pas disponible (1 min)',
     alerts: 'Alertes', avgReaction: 'Réaction moyenne', reaction: 'réaction {d}', solvedIn: 'résolu en {d}', noHist: 'Aucune alerte pour le moment.',
     st: { open: 'En attente', taken: 'En cours', resolved: 'Résolue', cancelled: 'Annulée' },
-    setAccount: 'Compte', setRing: 'Sonnerie', setLang: 'Langue', volume: 'Volume', play: 'Écouter',
+    setCodes: 'Codes des PC de caisse', codesIntro: 'À taper une seule fois dans l’app Windows de chaque caisse (pas d’identifiant ni de mot de passe). Ne le donnez qu’au personnel.', showCodes: 'Afficher les codes', noCodes: 'Aucun code pour le moment.', setAccount: 'Compte', setRing: 'Sonnerie', setLang: 'Langue', volume: 'Volume', play: 'Écouter',
     importSound: 'Importer un son', customOnly: 'Le son importé reste sur cet appareil.', customNone: 'Importez un fichier audio (MP3, M4A, WAV).',
     customLoaded: 'Fichier : {f}', tooBig: 'Fichier trop lourd (5 Mo maximum).', badAudio: 'Ce fichier audio n’a pas pu être lu.',
     wake: 'L’écran reste allumé tant que la page est ouverte et que vous êtes en service.',
@@ -80,7 +80,7 @@ const T = {
     already: '{n} already answered', alarmK: 'Till alert', relance: 'Reminder', snooze: 'Not available (1 min)',
     alerts: 'Alerts', avgReaction: 'Average response', reaction: 'response {d}', solvedIn: 'solved in {d}', noHist: 'No alerts yet.',
     st: { open: 'Waiting', taken: 'In progress', resolved: 'Solved', cancelled: 'Cancelled' },
-    setAccount: 'Account', setRing: 'Ringtone', setLang: 'Language', volume: 'Volume', play: 'Play',
+    setCodes: 'Till PC codes', codesIntro: 'Typed once in the Windows app of each till (no user ID or password). Share it with staff only.', showCodes: 'Show codes', noCodes: 'No codes yet.', setAccount: 'Account', setRing: 'Ringtone', setLang: 'Language', volume: 'Volume', play: 'Play',
     importSound: 'Import a sound', customOnly: 'The imported sound stays on this device.', customNone: 'Import an audio file (MP3, M4A, WAV).',
     customLoaded: 'File: {f}', tooBig: 'File too large (5 MB maximum).', badAudio: 'This audio file could not be read.',
     wake: 'The screen stays on while the page is open and you are on duty.',
@@ -627,6 +627,9 @@ function setHTML() {
     <p class="hint">${esc(t('customOnly'))}</p>
     <div class="range"><span>${esc(t('volume'))}</span><input type="range" id="mVol" min="10" max="100" step="5" value="${p.volume}"><span class="tab-nums" id="mVolV">${p.volume} %</span></div></div>
     ${installHTML() ? `<div class="group"><h2>${esc(t('setApp'))}</h2>${installHTML()}</div>` : ''}
+    <div class="group"><h2>${esc(t('setCodes'))}</h2><p class="hint">${esc(t('codesIntro'))}</p>
+      ${S.codes ? (Object.keys(S.codes).length ? `<div class="codes">${(profile.storeIds || []).filter((id) => S.codes[id]).map((id) => `<div class="hrow"><div><b>${esc(storeName(id))}</b></div><code class="tab-nums">${esc(S.codes[id])}</code></div>`).join('')}</div>` : `<p>${esc(t('noCodes'))}</p>`)
+        : `<button type="button" class="btn" data-act="showCodes">${esc(t('showCodes'))}</button>`}</div>
     <div class="group"><h2>${esc(t('setAccount'))}</h2><p>${esc(profile.name)}${profile.loginId ? ` · <span class="hint">${esc(profile.loginId)}</span>` : ''}</p>
       <button type="button" class="btn" data-act="password">${esc(t('changePw'))}</button>
       <button type="button" class="btn red" data-act="logout">${esc(t('signOut'))}</button>
@@ -688,6 +691,10 @@ document.addEventListener('click', async (e) => {
     ringStop(); await B.signOut(); return;
   }
   if (act === 'password') { openPasswordModal(); return; }
+  if (act === 'showCodes') {
+    B.storeCodes(profile.storeIds || []).then((c) => { S.codes = c; render(); }).catch(() => { S.codes = {}; render(); });
+    return;
+  }
   if (act === 'closeModal') { $('modal').hidden = true; $('modal').innerHTML = ''; return; }
   if (act === 'install') { doInstall(); return; }
   if (act === 'send') { caisseSend(); return; }

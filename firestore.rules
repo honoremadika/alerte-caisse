@@ -3,17 +3,90 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     function signedIn() { return request.auth != null; }
-    function me() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-    }
-    function isManager() { return signedIn() && me().role == 'manager'; }
-    function isCashier() { return signedIn() && me().role == 'cashier'; }
+    function path(p) { return /databases/$(database)/documents/$(p); }
+    function hasProfile() { return signedIn() && exists(path('users/' + request.auth.uid)); }
+    function me() { return get(path('users/' + request.auth.uid)).data; }
+    function isManager() { return hasProfile() && me().role == 'manager'; }
+    function isCashier() { return hasProfile() && me().role == 'cashier'; }
     function onlyChanges(fields) {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
     }
     // Un manager n'agit que sur les magasins qui lui sont attribués.
     function managesStore(storeId) {
       return isManager() && storeId in me().get('storeIds', []);
+    }
+
+    // ---- Postes de caisse (app Windows, sans identifiant ni mot de passe) ----
+    // Le PC se connecte de façon anonyme, demande à devenir « Caisse N » d'un
+    // magasin, puis un manager de ce magasin valide le poste depuis son téléphone.
+    // stationUids/{uid} -> { sid } relie la session du PC à son poste.
+    // Personne ne peut lister les postes, sauf les managers de leur magasin.
+    function stationOf(uid) { return get(path('stationUids/' + uid)).data.sid; }
+    function station(sid) { return get(path('stations/' + sid)).data; }
+    function isApprovedStation() {
+      return signedIn() && exists(path('stationUids/' + request.auth.uid))
+        && station(stationOf(request.auth.uid)).uid == request.auth.uid
+        && station(stationOf(request.auth.uid)).status == 'approved';
+    }
+
+    match /stations/{sid} {
+      allow read: if signedIn()
+        && (resource.data.uid == request.auth.uid || managesStore(resource.data.storeId));
+
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['storeId', 'register', 'uid', 'code', 'status', 'createdAt', 'pcName'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.code is string
+        && (
+          // Code du magasin (donné par l'administrateur) : poste accepté tout de suite.
+          (request.resource.data.status == 'approved'
+            && exists(path('stationCodes/' + request.resource.data.code))
+            && get(path('stationCodes/' + request.resource.data.code)).data.storeId == request.resource.data.storeId)
+          ||
+          // Ancienne méthode : demande validée ensuite par un manager.
+          (request.resource.data.status == 'pending' && request.resource.data.code.size() == 4)
+        )
+        && request.resource.data.register is string
+        && request.resource.data.register.size() >= 1 && request.resource.data.register.size() <= 4
+        && request.resource.data.storeId is string
+        && exists(path('stores/' + request.resource.data.storeId));
+
+      allow update: if
+        // Le manager du magasin valide ou refuse le poste.
+        (managesStore(resource.data.storeId)
+          && onlyChanges(['status', 'approvedBy', 'approvedByName', 'approvedAt'])
+          && request.resource.data.status in ['approved', 'refused']
+          && request.resource.data.approvedBy == request.auth.uid)
+        ||
+        // Le PC a une nouvelle session : il se reconnaît par l'identifiant secret du
+        // poste (aléatoire, 20 caractères, connu seulement du PC et des managers).
+        (signedIn()
+          && resource.data.status != 'refused'
+          && request.resource.data.uid == request.auth.uid
+          && onlyChanges(['uid']));
+
+      allow delete: if managesStore(resource.data.storeId);
+    }
+
+    match /stationUids/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      // Écrit dans le même lot que le poste, qui doit déjà pointer sur cette session.
+      allow create, update: if signedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['sid'])
+        && getAfter(path('stations/' + request.resource.data.sid)).data.uid == uid;
+      allow delete: if false;
+    }
+
+    // Codes des postes caisse : stationCodes/{CODE} -> { storeId }.
+    // Le PC lit UN code qu'il connaît (comme un mot de passe), personne ne peut les lister.
+    match /stationCodes/{code} {
+      allow get: if signedIn();
+      allow list, write: if false;
+    }
+    // Le code de chaque magasin, visible par les managers de ce magasin.
+    match /storeCodes/{storeId} {
+      allow get: if managesStore(storeId);
+      allow list, write: if false;
     }
 
     // Identifiant -> email, lu AVANT la connexion (écran « Identifiant »).
@@ -23,7 +96,8 @@ service cloud.firestore {
       allow list, write: if false;
     }
 
-    // Magasins : créés par l'administrateur (console Firebase).
+    // Magasins : créés par l'administrateur. Lisibles par toute session
+    // (liste déroulante du poste de caisse, avant validation).
     match /stores/{storeId} {
       allow read: if signedIn();
       allow write: if false;
@@ -31,8 +105,10 @@ service cloud.firestore {
 
     // Profils : créés par l'administrateur. Chacun peut seulement modifier
     // ses jetons de notification, sa langue et sa prise de service.
+    // Lisibles par le personnel et par les postes de caisse validés
+    // (liste « Managers en service »).
     match /users/{uid} {
-      allow read: if signedIn();
+      allow read: if hasProfile() || isApprovedStation();
       allow update: if signedIn() && request.auth.uid == uid
         && onlyChanges(['fcmTokens', 'lang', 'onDuty', 'dutyStoreId', 'dutyUntil'])
         // service uniquement dans un de SES magasins, 13 h maximum
@@ -42,18 +118,25 @@ service cloud.firestore {
     }
 
     match /alerts/{alertId} {
-      // Manager : alertes de ses magasins. Caissier : ses propres alertes.
+      // Manager : alertes de ses magasins. Caissier ou poste : ses propres alertes.
       allow read: if signedIn()
-        && (managesStore(resource.data.storeId)
-            || (isCashier() && resource.data.cashierId == request.auth.uid));
+        && (resource.data.cashierId == request.auth.uid
+            || managesStore(resource.data.storeId));
 
-      // Un caissier crée une alerte à son nom, au statut "open", pour un
-      // magasin qui existe (choisi dans la liste déroulante du poste).
-      allow create: if isCashier()
+      allow create: if signedIn()
         && request.resource.data.cashierId == request.auth.uid
         && request.resource.data.status == 'open'
         && request.resource.data.storeId is string
-        && exists(/databases/$(database)/documents/stores/$(request.resource.data.storeId));
+        && (
+          // Caissier connecté (app web) : magasin existant choisi dans la liste.
+          (isCashier() && exists(path('stores/' + request.resource.data.storeId)))
+          ||
+          // Poste de caisse validé (app Windows) : son magasin et sa caisse seulement.
+          (isApprovedStation()
+            && request.resource.data.stationId == stationOf(request.auth.uid)
+            && request.resource.data.storeId == station(stationOf(request.auth.uid)).storeId
+            && request.resource.data.register == station(stationOf(request.auth.uid)).register)
+        );
 
       allow update: if
         (managesStore(resource.data.storeId)
@@ -63,7 +146,7 @@ service cloud.firestore {
           && (request.resource.data.status != 'taken'
               || request.resource.data.takenBy == request.auth.uid))
         ||
-        (isCashier() && resource.data.cashierId == request.auth.uid
+        (signedIn() && resource.data.cashierId == request.auth.uid
           && resource.data.status == 'open'
           && request.resource.data.status == 'cancelled'
           && onlyChanges(['status', 'cancelledAt']));

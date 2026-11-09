@@ -7,12 +7,13 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'firebase_options.dart'; // généré par `flutterfire configure`
 import 'l10n/strings.dart';
 import 'models/app_user.dart';
-import 'screens/cashier_screen.dart';
+import 'screens/caisse_gate.dart';
 import 'screens/login_screen.dart';
 import 'screens/manager_screen.dart';
 import 'services/auth_service.dart';
 import 'services/desktop_overlay.dart';
 import 'services/notification_service.dart';
+import 'widgets/caisse_theme.dart';
 
 /// Deux applications distinctes partagent ce code :
 ///  - AppMode.caisse  : ordinateur du caissier (lib/main_caisse.dart)
@@ -51,9 +52,12 @@ class AlerteCaisseApp extends StatelessWidget {
         title: mode == AppMode.caisse ? '${tr('appName')} · Caisse' : '${tr('appName')} · Manager',
         debugShowCheckedModeBanner: false,
         locale: Locale(lang),
-        theme: ThemeData(colorSchemeSeed: seed, useMaterial3: true),
-        darkTheme: ThemeData(colorSchemeSeed: seed, brightness: Brightness.dark, useMaterial3: true),
-        home: AuthGate(mode: mode),
+        theme: mode == AppMode.caisse ? caisseTheme() : ThemeData(colorSchemeSeed: seed, useMaterial3: true),
+        darkTheme: mode == AppMode.caisse
+            ? null
+            : ThemeData(colorSchemeSeed: seed, brightness: Brightness.dark, useMaterial3: true),
+        // Caisse (PC) : pas d'identifiant ni de mot de passe, un code de magasin une seule fois.
+        home: mode == AppMode.caisse ? const CaisseGate() : AuthGate(mode: mode),
       ),
     );
   }
@@ -87,9 +91,7 @@ class AuthGate extends StatelessWidget {
             if (mode == AppMode.manager && !profile.isManager) {
               return _Blocked(text: tr('wrongAppManager'), onLogout: auth.signOut);
             }
-            return mode == AppMode.caisse
-                ? CashierScreen(user: profile)
-                : ManagerScreen(user: profile);
+            return ManagerScreen(user: profile);
           },
         );
       },

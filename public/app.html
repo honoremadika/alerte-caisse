@@ -157,6 +157,9 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 .hrow { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 11px 12px; display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; gap: 10px; align-items: start; }
 .hrow .n { width: 38px; height: 38px; border-radius: 50%; background: var(--surface-2); display: grid; place-items: center; font-family: var(--font-mono); font-size: 14px; }
 .hrow b { display: block; font-size: 14px; }
+.codes { display: grid; gap: 8px; margin-top: 6px; }
+.codes .hrow { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+.codes code { font-family: var(--font-mono); font-size: 16px; font-weight: 700; letter-spacing: .08em; user-select: all; }
 .hrow span { display: block; font-size: 12px; color: var(--muted); }
 .st { font-weight: 700; font-size: 13px; }
 .st.open { color: var(--accent); } .st.taken { color: var(--warn); } .st.resolved { color: var(--ok); } .st.cancelled { color: var(--muted); }

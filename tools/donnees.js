@@ -3,7 +3,8 @@
  * Les comptes (email + mot de passe) sont créés à la main dans Firebase Authentication ;
  * ce script ne fait que relier chaque email à son rôle et à son magasin.
  */
-const { initializeApp } = require("firebase-admin/app");
+const crypto = require("crypto");
+const { initializeApp, applicationDefault } = require("firebase-admin/app");
 const { getAuth } = require("firebase-admin/auth");
 const { getFirestore } = require("firebase-admin/firestore");
 
@@ -32,7 +33,41 @@ const PROFILS = [
   { id: "meya", email: "meya@gmail.com", name: "Meya", role: "cashier", storeId: "km06", register: "1" },
 ];
 
+// Code de poste caisse : « KM06-7F3K9P » (sans 0/O ni 1/I pour éviter les confusions).
+const ALPHA = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+const newCode = (storeId) =>
+  storeId.toUpperCase() + "-" + Array.from(crypto.randomBytes(6), (b) => ALPHA[b % ALPHA.length]).join("");
+
+async function stationCodes() {
+  let created = 0;
+  for (const s of STORES) {
+    const ref = db.collection("storeCodes").doc(s.id);
+    const snap = await ref.get();
+    if (snap.exists && snap.data().code) continue; // un code ne change pas tout seul
+    const code = newCode(s.id);
+    const b = db.batch();
+    b.set(ref, { code, createdAt: new Date() });
+    b.set(db.collection("stationCodes").doc(code), { storeId: s.id });
+    await b.commit();
+    created++;
+  }
+  console.log(`Codes des postes caisse : ${created} créé(s), visibles par les managers dans l'app (Réglages).`);
+}
+
+// Active la connexion sans compte (anonyme) utilisée par les PC des caisses.
+async function enableAnonymous() {
+  const project = process.env.GOOGLE_CLOUD_PROJECT || "alerte-caisse";
+  const { access_token } = await applicationDefault().getAccessToken();
+  const res = await fetch(
+    `https://identitytoolkit.googleapis.com/admin/v2/projects/${project}/config?updateMask=signIn.anonymous.enabled`,
+    { method: "PATCH", headers: { Authorization: `Bearer ${access_token}`, "Content-Type": "application/json", "X-Goog-User-Project": project },
+      body: JSON.stringify({ signIn: { anonymous: { enabled: true } } }) });
+  if (res.ok) console.log("Connexion des postes caisse (anonyme) : activée.");
+  else console.log(`::warning::Connexion anonyme non activée (${res.status}) : Firebase Console → Authentication → Méthodes de connexion → Anonyme → Activer. ${(await res.text()).slice(0, 300)}`);
+}
+
 (async () => {
+  await enableAnonymous();
   const batch = db.batch();
   for (const { id, ...data } of STORES) batch.set(db.collection("stores").doc(id), data, { merge: true });
   await batch.commit();
@@ -47,4 +82,5 @@ const PROFILS = [
       console.log(`::warning::${email} : compte introuvable dans Authentication (${e.code || e.message})`);
     }
   }
+  await stationCodes();
 })().catch((e) => { console.error(`::error::${e.message}`); process.exit(1); });

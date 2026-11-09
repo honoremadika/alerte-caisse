@@ -3,12 +3,16 @@
 import path from 'node:path';
 import fs from 'node:fs';
 const [pwDir, BASE, SHOTS] = process.argv.slice(2);
-const { chromium } = await import(path.join(pwDir, 'node_modules/playwright-core/index.mjs'));
+import { createRequire } from 'node:module';
+let chromium;
+try { ({ chromium } = await import(path.join(pwDir, 'node_modules/playwright-core/index.mjs'))); }
+catch { ({ chromium } = createRequire(import.meta.url)('playwright')); } // Playwright préinstallé
 fs.mkdirSync(SHOTS, { recursive: true });
 
 const results = [];
 const ok = (name, cond, extra = '') => { results.push({ name, ok: !!cond, extra }); console.log((cond ? 'OK   ' : 'FAIL ') + name + (extra ? '  — ' + extra : '')); };
-const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/headless_shell', args: ['--autoplay-policy=no-user-gesture-required'] });
+const HS = '/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/headless_shell';
+const browser = await chromium.launch({ ...(fs.existsSync(HS) ? { executablePath: HS } : {}), args: ['--autoplay-policy=no-user-gesture-required'] });
 const ctx = await browser.newContext({ locale: 'fr-FR' });
 await ctx.addInitScript({ path: path.join(path.dirname(new URL(import.meta.url).pathname), 'mock-backend.js') });
 const consoleErrors = [];
@@ -123,6 +127,9 @@ tm = await text(mgr);
 ok('Réglages : 6 sonneries + mon son + volume + mot de passe', ['Sirène', 'Téléphone', 'Réveil', 'Urgence', 'Carillon', 'Douce', 'Mon son', 'Volume', 'Changer le mot de passe'].every((w) => tm.includes(w)));
 await mgr.check('#tone-carillon'); await wait(200);
 ok('Choix de la sonnerie mémorisé', await mgr.evaluate(() => localStorage.getItem('ac2_tone') === '"carillon"'));
+await mgr.click('[data-act=showCodes]'); await wait(200);
+tm = await text(mgr);
+ok('Réglages : codes des PC de caisse (magasins du manager seulement)', tm.includes('KM06-TEST23') && tm.includes('KM14-TEST23') && !tm.includes('KM05-TEST23'));
 await mgr.screenshot({ path: SHOTS + '/5-manager-reglages.png' });
 
 // Changement de poste : une alerte de KM 14 ne fait PAS sonner un manager de KM 06

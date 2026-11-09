@@ -15,8 +15,12 @@ class DesktopOverlay {
   static bool get isDesktop =>
       !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
 
-  static const bubbleSize = Size(76, 76);
-  static const panelSize = Size(460, 640);
+  static const bubbleSize = Size(72, 72);
+  static const panelSize = Size(440, 660);
+
+  /// Panneau du poste ouvert : un clic en dehors (sur le logiciel de caisse,
+  /// le bureau…) le réduit en bulle. Désactivé pendant l'installation du poste.
+  static bool collapseOnBlur = false;
 
   /// Raccourci global : Ctrl + Alt + A (fonctionne même quand le
   /// logiciel de caisse a le focus).
@@ -49,6 +53,8 @@ class DesktopOverlay {
       await windowManager.setAlignment(Alignment.centerRight);
       await windowManager.show();
     });
+
+    windowManager.addListener(_BlurToBubble());
 
     await hotKeyManager.unregisterAll();
     await hotKeyManager.register(hotKey, keyDownHandler: (_) => toggle());
@@ -119,6 +125,7 @@ class DesktopOverlay {
     await windowManager.setAlwaysOnTop(true);
     await windowManager.show();
     await windowManager.focus();
+    _expandedAt = DateTime.now();
   }
 
   static Future<void> collapse() async {
@@ -140,6 +147,8 @@ class DesktopOverlay {
     await _savePlaces();
   }
 
+  static DateTime _expandedAt = DateTime(0);
+
   /// Glisser la bulle pour la déplacer sur l'écran.
   static Future<void> startDrag() async {
     await windowManager.startDragging();
@@ -149,4 +158,15 @@ class DesktopOverlay {
   /// (la fenêtre n'a pas de barre de titre Windows).
   static Widget dragArea({required Widget child}) =>
       isDesktop ? DragToMoveArea(child: child) : child;
+}
+
+/// Fenêtre qui perd le focus (clic ailleurs) : retour à la bulle.
+class _BlurToBubble with WindowListener {
+  @override
+  void onWindowBlur() {
+    if (!DesktopOverlay.collapseOnBlur || !DesktopOverlay.expanded.value) return;
+    // Juste après l'ouverture, Windows peut envoyer une perte de focus parasite.
+    if (DateTime.now().difference(DesktopOverlay._expandedAt) < const Duration(milliseconds: 600)) return;
+    DesktopOverlay.collapse();
+  }
 }

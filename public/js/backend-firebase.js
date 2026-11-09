@@ -142,5 +142,14 @@ export const backend = {
 
   async endDuty(uid) { await updateDoc(doc(db, 'users', uid), { onDuty: false, dutyUntil: deleteField() }); },
 
+  /** Codes des PC de caisse des magasins du manager : { storeId: code }. */
+  async storeCodes(storeIds) {
+    const out = {};
+    await Promise.all(storeIds.map(async (id) => {
+      try { const d = await getDoc(doc(db, 'storeCodes', id)); if (d.exists() && d.data().code) out[id] = d.data().code; } catch (e) { /* pas autorisé */ }
+    }));
+    return out;
+  },
+
   async saveLang(uid, lang) { try { await updateDoc(doc(db, 'users', uid), { lang }); } catch (e) { /* non bloquant */ } },
 };

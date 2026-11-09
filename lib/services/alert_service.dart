@@ -16,6 +16,7 @@ class AlertService {
     required AppUser cashier,
     required AlertType type,
     String message = '',
+    String? stationId, // poste de caisse Windows (sans compte)
   }) {
     return _alerts.add({
       'storeId': cashier.storeId,
@@ -28,6 +29,7 @@ class AlertService {
       'cashierName': cashier.name,
       'status': 'open',
       'createdAt': FieldValue.serverTimestamp(),
+      if (stationId != null) 'stationId': stationId,
     });
   }
 
@@ -64,6 +66,15 @@ class AlertService {
       .where('dutyStoreId', isEqualTo: storeId)
       .snapshots()
       .map((s) => s.docs.map(AppUser.fromDoc).where((u) => u.isOnDutyNow).length);
+
+  /// Prénoms des managers en service (affichés sur le poste de caisse).
+  Stream<List<String>> managersOnDutyNames(String storeId) => _db
+      .collection('users')
+      .where('role', isEqualTo: 'manager')
+      .where('onDuty', isEqualTo: true)
+      .where('dutyStoreId', isEqualTo: storeId)
+      .snapshots()
+      .map((s) => s.docs.map(AppUser.fromDoc).where((u) => u.isOnDutyNow).map((u) => u.name).toList()..sort());
 
   /// « J'arrive ». Un seul manager peut prendre l'alerte.
   /// Renvoie null si c'est bon, sinon le nom de celui qui l'a déjà prise.

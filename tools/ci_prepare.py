@@ -89,6 +89,10 @@ if android.exists():
         if lines:
             s = s.replace("<application", lines + "    <application", 1)
         s = re.sub(r'android:label="[^"]*"', 'android:label="Alerte Manager"', s, count=1)
+        if 'android:scheme="https"' not in s:  # ouvrir le lien de mise à jour (Android 11+)
+            s = s.replace("</manifest>",
+                '    <queries>\n        <intent>\n            <action android:name="android.intent.action.VIEW"/>\n'
+                '            <data android:scheme="https"/>\n        </intent>\n    </queries>\n</manifest>', 1)
         if "flutter_foreground_task.service.ForegroundService" not in s:
             s = s.replace("    </application>", SERVICE + "    </application>", 1)
         if "showWhenLocked" not in s:

@@ -14,6 +14,7 @@ import '../services/duty_background.dart';
 import '../services/duty_service.dart';
 import '../services/notification_service.dart';
 import '../services/store_service.dart';
+import '../services/update_service.dart';
 import '../widgets/lang_menu.dart';
 import 'history_screen.dart';
 import 'password_screen.dart';
@@ -46,6 +47,24 @@ class _ManagerScreenState extends State<ManagerScreen> {
     super.initState();
     NotificationService.instance.registerManager(me.uid);
     AuthService().saveLang(me.uid, AppLang.instance.value);
+    UpdateService.available().then((yes) {
+      if (!yes || !mounted) return;
+      final m = ScaffoldMessenger.of(context);
+      m.showMaterialBanner(MaterialBanner(
+        leading: const Icon(Icons.system_update),
+        content: Text(tr('updateAvailable')),
+        actions: [
+          TextButton(onPressed: m.hideCurrentMaterialBanner, child: Text(tr('later'))),
+          FilledButton(
+            onPressed: () {
+              m.hideCurrentMaterialBanner();
+              UpdateService.download();
+            },
+            child: Text(tr('update')),
+          ),
+        ],
+      ));
+    });
     StoreService().list(me.storeIds).then((s) {
       if (mounted) setState(() => _stores = s);
       // Déjà en service (téléphone redémarré, app relancée) : on relance l'écoute.

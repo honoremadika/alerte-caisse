@@ -21,6 +21,9 @@ dependencies:
   window_manager: ^0.4.2
   hotkey_manager: ^0.2.3
   launch_at_startup: ^0.3.1
+  # Android hors Play Store : avertir d'une nouvelle version
+  package_info_plus: ^8.1.0
+  url_launcher: ^6.3.1
 
 dev_dependencies:
   flutter_test:

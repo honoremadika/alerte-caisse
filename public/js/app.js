@@ -137,7 +137,7 @@ const ROUTE = (() => {
 })();
 
 /* ======================= Installation (même lien : web ou app) ======================= */
-const APK_URL = 'https://github.com/honoremadika/alerte-caisse/releases/latest/download/AlerteCaisse-Manager.apk';
+const APK_URL = 'https://github.com/honoremadika/alerte-caisse/releases/latest/download/AlerteManager-tous-telephones.apk';
 const WIN_URL = 'https://github.com/honoremadika/alerte-caisse/releases/latest/download/AlerteCaisse-Caisse-Windows.zip';
 let installEvt = null;
 window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installEvt = e; render(); });

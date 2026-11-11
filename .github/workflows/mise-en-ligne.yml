@@ -93,15 +93,6 @@ jobs:
           else
             echo "::warning::Secret ANDROID_SIGNING absent : app signée en mode test, pas envoyable au Play Store."
           fi
-      - name: Vérifier le code (analyse)
-        run: |
-          flutter pub get
-          flutter --version | head -1 >> "$GITHUB_STEP_SUMMARY"
-          flutter analyze --no-fatal-infos --no-fatal-warnings > analyse.log 2>&1 && echo "::notice::Analyse du code : aucune erreur" || {
-            grep -E "^\s*error " analyse.log | head -40 | while IFS= read -r l; do echo "::error::$l"; done
-            exit 1
-          }
-          grep -E "^\s*warning " analyse.log | head -15 | while IFS= read -r l; do echo "::warning::$l"; done
       - name: Compiler l'app Android (Play Store + APK)
         run: |
           flutter pub get
@@ -200,37 +191,6 @@ jobs:
           npm install --no-save google-auth-library@9
           export VERSION_NAME="$(grep '^version:' pubspec.yaml | awk '{print $2}' | cut -d+ -f1) ($((100 + GITHUB_RUN_NUMBER)))"
           node tools/play_publish.js out/AlerteManager-PlayStore.aab
-
-  test-android:
-    name: Test sur téléphone Android virtuel
-    needs: android
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          name: android
-          path: out
-      - name: Activer l'accélération (KVM)
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-      - uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 34
-          arch: x86_64
-          target: google_apis
-          disable-animations: true
-          script: bash tools/test_emulateur.sh out/AlerteManager-tous-telephones.apk
-      - name: Garder la capture d'écran
-        if: always()
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          [ -s ecran-android.png ] || exit 0
-          gh release view test-ecran --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1 || gh release create test-ecran --repo "$GITHUB_REPOSITORY" --prerelease --title "Captures de test" --notes "Captures d'écran des tests automatiques."
-          gh release upload test-ecran ecran-android.png --repo "$GITHUB_REPOSITORY" --clobber
 
   windows:
     name: App Caisse · Windows

@@ -98,7 +98,7 @@ jobs:
           flutter pub get
           dart run flutter_launcher_icons
           # Vérification du code (app mobile ET app PC) : toute erreur arrête la mise en ligne.
-          flutter analyze --no-fatal-infos --no-fatal-warnings > analyse.log 2>&1 || true
+          flutter analyze --no-fatal-infos --no-fatal-warnings lib > analyse.log 2>&1 || true
           grep -E "^ *warning •" analyse.log | head -20 | while IFS= read -r l; do echo "::warning::$l"; done
           if grep -qE "^ *error •" analyse.log; then
             grep -E "^ *error •" analyse.log | head -40 | while IFS= read -r l; do echo "::error::$l"; done

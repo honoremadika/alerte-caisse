@@ -45,7 +45,7 @@ if android.exists():
         '<resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@raw/*,@drawable/ic_stat_alerte" />\n',
         encoding="utf-8")
     # Petite cloche blanche de la barre d'état (l'icône de l'app y apparaîtrait comme un carré blanc).
-    for d in sorted((ROOT / "assets" / "android").glob("drawable-*")):
+    for d in sorted((ROOT / "assets" / "icones-android").glob("drawable-*")):
         dest = android / "src" / "main" / "res" / d.name
         dest.mkdir(parents=True, exist_ok=True)
         for png in d.glob("*.png"):

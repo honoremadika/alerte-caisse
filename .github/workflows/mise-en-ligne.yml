@@ -168,6 +168,30 @@ jobs:
           gh release view essai --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || gh release create essai --repo "$GITHUB_REPOSITORY" --prerelease --title "Captures des essais automatiques" --notes "Fichiers de vérification, pas une version de l'app."
           gh release upload essai ecran-android-${{ matrix.api }}.png --repo "$GITHUB_REPOSITORY" --clobber
 
+  playstore:
+    name: Envoi au Play Store
+    # Seulement si l'app s'installe et démarre sur les téléphones virtuels.
+    needs: [android, essai]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: android
+          path: out
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Envoyer la version et la fiche
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+          CONTACT_EMAIL: ${{ vars.CONTACT_EMAIL }}
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "$RUNNER_TEMP/sa.json"
+          npm install --no-save google-auth-library@9
+          export VERSION_NAME="$(grep '^version:' pubspec.yaml | awk '{print $2}' | cut -d+ -f1) ($((100 + GITHUB_RUN_NUMBER)))"
+          node tools/play_publish.js out/AlerteManager-PlayStore.aab
+
   windows:
     name: App Caisse · Windows
     runs-on: windows-latest

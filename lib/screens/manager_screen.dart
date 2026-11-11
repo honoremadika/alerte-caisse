@@ -17,7 +17,6 @@ import '../services/notification_service.dart';
 import '../services/store_service.dart';
 import '../services/station_service.dart';
 import '../services/update_service.dart';
-import '../widgets/lang_menu.dart';
 import 'history_screen.dart';
 import 'password_screen.dart';
 
@@ -35,20 +34,26 @@ class _ManagerScreenState extends State<ManagerScreen> {
   final _duty = DutyService();
   List<Store> _stores = [];
   bool _busy = false;
+  String? _lastStore; // dernier magasin utilisé sur ce téléphone
   Timer? _ticker;
 
   AppUser get me => widget.user;
 
-  /// Magasin affiché : celui du service en cours, sinon le premier.
+  /// Magasin affiché : celui du service en cours, sinon le dernier utilisé
+  /// sur ce téléphone, sinon le premier.
   String get _storeId =>
       (me.isOnDutyNow ? me.dutyStoreId : null) ??
+      (_lastStore != null && me.storeIds.contains(_lastStore) ? _lastStore : null) ??
       (me.storeIds.isNotEmpty ? me.storeIds.first : '');
 
   @override
   void initState() {
     super.initState();
     NotificationService.instance.registerManager(me.uid);
-    AuthService().saveLang(me.uid, AppLang.instance.value);
+    AuthService().saveLang(me.uid, AppLang.instance.value).catchError((_) {});
+    SharedPreferences.getInstance().then((p) {
+      if (mounted) setState(() => _lastStore = p.getString('lastStore'));
+    });
     UpdateService.available().then((yes) {
       if (!yes || !mounted) return;
       final m = ScaffoldMessenger.of(context);
@@ -76,9 +81,9 @@ class _ManagerScreenState extends State<ManagerScreen> {
           storeName: _storeName(me.dutyStoreId!),
           lang: AppLang.instance.value,
           until: me.dutyUntil!,
-        );
+        ).catchError((_) {});
       }
-    });
+    }).catchError((_) {});
     _ticker = Timer.periodic(const Duration(seconds: 30), (_) {
       if (mounted) setState(() {});
     });
@@ -93,11 +98,31 @@ class _ManagerScreenState extends State<ManagerScreen> {
   String _storeName(String id) =>
       _stores.where((s) => s.id == id).map((s) => s.name).firstOrNull ?? id;
 
+  void _fail() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('actionFailed'))));
+  }
+
   Future<void> _logout() async {
-    if (me.onDuty) await _duty.end(me.uid);
-    await DutyBackground.stop();
-    await NotificationService.instance.unregisterManager(me.uid);
+    // Même sans réseau, la déconnexion doit aboutir et l'écoute s'arrêter.
+    try {
+      if (me.onDuty) await _duty.end(me.uid).timeout(const Duration(seconds: 6));
+    } catch (_) {}
+    try {
+      await DutyBackground.stop();
+    } catch (_) {}
+    try {
+      await NotificationService.instance.unregisterManager(me.uid).timeout(const Duration(seconds: 6));
+    } catch (_) {}
     await AuthService().signOut();
+  }
+
+  Future<void> _endDuty() async {
+    try {
+      await _duty.end(me.uid);
+    } catch (_) {
+      _fail();
+    }
   }
 
   Future<void> _startDuty() async {
@@ -132,20 +157,36 @@ class _ManagerScreenState extends State<ManagerScreen> {
       ),
     );
     if (store == null) return;
-    await prefs.setString('lastStore', store.id);
-    setState(() => _busy = true);
-    final err = await _duty.start(me, store);
+    final chosen = store;
+    await prefs.setString('lastStore', chosen.id);
     if (!mounted) return;
-    setState(() => _busy = false);
-    if (err != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
+    setState(() {
+      _busy = true;
+      _lastStore = chosen.id;
+    });
+    try {
+      final err = await _duty.start(me, chosen);
+      if (err != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
+      }
+    } catch (_) {
+      _fail();
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
   /// Codes à taper une seule fois sur les PC de caisse de ses magasins.
   Future<void> _showTillCodes() async {
-    final codes = await StationService.instance.codesFor(widget.user.storeIds);
-    final stores = await StoreService().list(widget.user.storeIds);
+    final Map<String, String> codes;
+    final List<Store> stores;
+    try {
+      codes = await StationService.instance.codesFor(widget.user.storeIds);
+      stores = _stores.isNotEmpty ? _stores : await StoreService().list(widget.user.storeIds);
+    } catch (_) {
+      _fail();
+      return;
+    }
     if (!mounted) return;
     final rows = stores.where((s) => codes.containsKey(s.id)).toList();
     await showDialog<void>(
@@ -224,17 +265,26 @@ class _ManagerScreenState extends State<ManagerScreen> {
   }
 
   Future<void> _take(CaisseAlert a) async {
-    final other = await _alerts.take(a.id, me);
+    // La sonnerie s'arrête tout de suite sur ce téléphone, même si le réseau est lent.
     await NotificationService.dismiss(a.id);
-    if (other != null && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(tr('alreadyTaken', {'name': other}))));
+    try {
+      final other = await _alerts.take(a.id, me);
+      if (other != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(tr('alreadyTaken', {'name': other}))));
+      }
+    } catch (_) {
+      _fail();
     }
   }
 
   Future<void> _resolve(CaisseAlert a) async {
-    await _alerts.resolve(a.id, me);
     await NotificationService.dismiss(a.id);
+    try {
+      await _alerts.resolve(a.id, me);
+    } catch (_) {
+      _fail();
+    }
   }
 
   @override
@@ -244,7 +294,6 @@ class _ManagerScreenState extends State<ManagerScreen> {
       appBar: AppBar(
         title: Text(tr('openAlerts')),
         actions: [
-          LangMenu(onChanged: (l) => AuthService().saveLang(me.uid, l)),
           IconButton(
             tooltip: tr('history'),
             icon: const Icon(Icons.history),
@@ -253,27 +302,34 @@ class _ManagerScreenState extends State<ManagerScreen> {
                 : () => Navigator.of(context).push(MaterialPageRoute(
                     builder: (_) => HistoryScreen(storeId: _storeId))),
           ),
-          IconButton(
-            tooltip: tr('tillCodes'),
-            icon: const Icon(Icons.point_of_sale),
-            onPressed: _showTillCodes,
-          ),
-          if (DutyBackground.supported)
-            IconButton(
-              tooltip: tr('ringtone'),
-              icon: const Icon(Icons.music_note),
-              onPressed: _chooseTone,
-            ),
-          IconButton(
-            tooltip: tr('changePassword'),
-            icon: const Icon(Icons.key),
-            onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const PasswordScreen())),
-          ),
-          IconButton(
-            tooltip: tr('signOut'),
-            icon: const Icon(Icons.logout),
-            onPressed: _logout,
+          PopupMenuButton<String>(
+            tooltip: tr('menu'),
+            onSelected: (v) async {
+              switch (v) {
+                case 'tone':
+                  _chooseTone();
+                case 'codes':
+                  _showTillCodes();
+                case 'lang':
+                  final l = AppLang.instance.value == 'fr' ? 'en' : 'fr';
+                  await AppLang.instance.set(l);
+                  AuthService().saveLang(me.uid, l).catchError((_) {});
+                case 'password':
+                  Navigator.of(context)
+                      .push(MaterialPageRoute(builder: (_) => const PasswordScreen()));
+                case 'logout':
+                  _logout();
+              }
+            },
+            itemBuilder: (_) => [
+              if (DutyBackground.supported)
+                _menuItem('tone', Icons.music_note, tr('ringtone')),
+              _menuItem('codes', Icons.point_of_sale, tr('tillCodes')),
+              _menuItem('lang', Icons.language,
+                  AppLang.instance.value == 'fr' ? 'English' : 'Français'),
+              _menuItem('password', Icons.key, tr('changePassword')),
+              _menuItem('logout', Icons.logout, tr('signOut')),
+            ],
           ),
         ],
       ),
@@ -284,7 +340,7 @@ class _ManagerScreenState extends State<ManagerScreen> {
             storeName: me.dutyStoreId != null ? _storeName(me.dutyStoreId!) : '',
             busy: _busy,
             onStart: _startDuty,
-            onEnd: () => _duty.end(me.uid),
+            onEnd: _endDuty,
           ),
           Expanded(
             child: _storeId.isEmpty
@@ -323,6 +379,15 @@ class _ManagerScreenState extends State<ManagerScreen> {
     );
   }
 }
+
+PopupMenuItem<String> _menuItem(String value, IconData icon, String label) => PopupMenuItem(
+      value: value,
+      child: Row(children: [
+        Icon(icon, size: 20),
+        const SizedBox(width: 12),
+        Flexible(child: Text(label)),
+      ]),
+    );
 
 /// Bandeau « En service / Hors service ».
 class _DutyBar extends StatelessWidget {

@@ -42,8 +42,29 @@ if android.exists():
     # Garde les sons en version optimisée (sinon R8 peut les supprimer).
     (raw / "keep.xml").write_text(
         '<?xml version="1.0" encoding="utf-8"?>\n'
-        '<resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@raw/*" />\n',
+        '<resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@raw/*,@drawable/ic_stat_alerte" />\n',
         encoding="utf-8")
+    # Petite cloche blanche de la barre d'état (l'icône de l'app y apparaîtrait comme un carré blanc).
+    for d in sorted((ROOT / "assets" / "android").glob("drawable-*")):
+        dest = android / "src" / "main" / "res" / d.name
+        dest.mkdir(parents=True, exist_ok=True)
+        for png in d.glob("*.png"):
+            shutil.copy(png, dest / png.name)
+            done.append(f"android/app/src/main/res/{d.name}/{png.name}")
+    # Règles de la version optimisée (R8) : bibliothèques qui lisent leurs classes par leur nom.
+    (android / "proguard-rules.pro").write_text(
+        "# Notifications locales (Gson)\n"
+        "-keep class com.dexterous.** { *; }\n"
+        "-keepattributes Signature\n"
+        "-keepattributes *Annotation*\n"
+        "-keep class com.google.gson.reflect.TypeToken { *; }\n"
+        "-keep class * extends com.google.gson.reflect.TypeToken\n"
+        "-keep public class * implements java.lang.reflect.Type\n"
+        "-dontwarn sun.misc.**\n"
+        "# Écoute pendant le service\n"
+        "-keep class com.pravera.flutter_foreground_task.** { *; }\n",
+        encoding="utf-8")
+    done.append("android/app/proguard-rules.pro")
 
     # Permissions limitées à ce que le Play Store accepte sans formulaire spécial
     # (seul le service « specialUse » se déclare dans la Play Console).
@@ -55,6 +76,8 @@ if android.exists():
         # Version gratuite : écoute des alertes pendant le service
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.FOREGROUND_SERVICE_SPECIAL_USE",
+        # Téléphone redémarré pendant le service : l'écoute repart seule
+        "android.permission.RECEIVE_BOOT_COMPLETED",
     ]
     # Permissions qu'une bibliothèque pourrait ajouter et que le Play Store contrôle : retirées.
     REMOVE = [
@@ -76,6 +99,9 @@ if android.exists():
         '                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"\n'
         '                android:value="Alertes des caisses en temps réel pendant le service du manager" />\n'
         '        </service>\n'
+        '        <meta-data\n'
+        '            android:name="tech.geniuslabs.alerte_caisse.ICONE_SERVICE"\n'
+        '            android:resource="@drawable/ic_stat_alerte" />\n'
     )
 
     def manifest(s: str) -> str:

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:launch_at_startup/launch_at_startup.dart';
+import 'package:screen_retriever/screen_retriever.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -120,8 +121,9 @@ class DesktopOverlay {
     if (_panelPos != null) {
       await windowManager.setPosition(_panelPos!);
     } else {
-      await windowManager.setAlignment(Alignment.bottomRight);
+      await windowManager.setAlignment(Alignment.centerRight);
     }
+    await _keepOnScreen();
     await windowManager.setAlwaysOnTop(true);
     await windowManager.show();
     await windowManager.focus();
@@ -143,11 +145,31 @@ class DesktopOverlay {
     } else {
       await windowManager.setAlignment(Alignment.centerRight);
     }
+    await _keepOnScreen();
     await windowManager.setAlwaysOnTop(true);
     await _savePlaces();
   }
 
   static DateTime _expandedAt = DateTime(0);
+
+  /// Ramène la fenêtre entièrement dans la zone visible de son écran (hors barre
+  /// des tâches) : elle ne peut plus rester coincée en bas ou sur le côté.
+  static Future<void> _keepOnScreen() async {
+    try {
+      final b = await windowManager.getBounds();
+      final displays = await screenRetriever.getAllDisplays();
+      if (displays.isEmpty) return;
+      Rect area(Display d) => (d.visiblePosition ?? Offset.zero) & (d.visibleSize ?? d.size);
+      final screen = displays.map(area).firstWhere((r) => r.contains(b.center),
+          orElse: () => area(displays.first));
+      final w = b.width > screen.width ? screen.width : b.width;
+      final h = b.height > screen.height ? screen.height : b.height;
+      final x = b.left.clamp(screen.left, screen.right - w).toDouble();
+      final y = b.top.clamp(screen.top, screen.bottom - h).toDouble();
+      if (w != b.width || h != b.height) await windowManager.setSize(Size(w, h));
+      if (x != b.left || y != b.top) await windowManager.setPosition(Offset(x, y));
+    } catch (_) {}
+  }
 
   /// Glisser la bulle pour la déplacer sur l'écran.
   static Future<void> startDrag() async {
@@ -162,6 +184,10 @@ class DesktopOverlay {
 
 /// Fenêtre qui perd le focus (clic ailleurs) : retour à la bulle.
 class _BlurToBubble with WindowListener {
+  /// Fenêtre déplacée à la souris : si elle dépasse de l'écran, on la ramène.
+  @override
+  void onWindowMoved() => DesktopOverlay._keepOnScreen();
+
   @override
   void onWindowBlur() {
     if (!DesktopOverlay.collapseOnBlur || !DesktopOverlay.expanded.value) return;

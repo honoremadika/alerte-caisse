@@ -1,4 +1,4 @@
-; Programme d'installation Windows de l'app Caisse (Inno Setup 6).
+﻿; Programme d'installation Windows de l'app Caisse (Inno Setup 6).
 ; Compilé par la mise en ligne automatique :
 ;   ISCC /DAppVersion=2.0.0.15 /DSourceDir=...\Release /DOutDir=...\out installer\alerte-caisse.iss
 ; Installation pour l'utilisateur courant : pas besoin du mot de passe administrateur.
@@ -30,8 +30,10 @@ DefaultDirName={autopf}\{#AppName}
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
 DisableDirPage=yes
+DisableReadyPage=yes
+ShowLanguageDialog=no
+; Toujours pour l'utilisateur courant : aucune question, aucun mot de passe administrateur.
 PrivilegesRequired=lowest
-PrivilegesRequiredOverridesAllowed=dialog
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0
@@ -61,7 +63,6 @@ en.LaunchNow=Launch Alerte Caisse
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:DesktopIcon}"
-Name: "autostart"; Description: "{cm:StartWithWindows}"
 
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -72,10 +73,7 @@ Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; Tasks: desktopico
 
 [Registry]
 ; Même nom que celui utilisé par l'app elle-même (launch_at_startup) : pas de doublon.
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "{#AppName}"; ValueData: """{app}\{#AppExe}"""; Flags: uninsdeletevalue; Tasks: autostart
-
-; Désinstallation : retire aussi le démarrage automatique ajouté par l'app elle-même.
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "{#AppName}"; Flags: uninsdeletevalue dontcreatekey
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "{#AppName}"; ValueData: """{app}\{#AppExe}"""; Flags: uninsdeletevalue
 
 [Run]
 Filename: "{app}\{#AppExe}"; Description: "{cm:LaunchNow}"; Flags: nowait postinstall skipifsilent
@@ -85,3 +83,15 @@ Filename: "{cmd}"; Parameters: "/C taskkill /IM {#AppExe} /F"; Flags: runhidden;
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}"
+
+[Code]
+// Mise à jour : l'ancienne version est fermée avant de remplacer ses fichiers
+// (sinon Windows refuse d'écraser un programme en cours d'exécution).
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  R: Integer;
+begin
+  Exec(ExpandConstant('{cmd}'), '/C taskkill /IM {#AppExe} /F', '', SW_HIDE, ewWaitUntilTerminated, R);
+  Sleep(600);
+  Result := '';
+end;

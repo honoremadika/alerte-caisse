@@ -1,5 +1,6 @@
 import 'dart:io' show Platform;
 import 'dart:typed_data';
+import 'dart:ui' show Color;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -29,6 +30,9 @@ class NotificationService {
   static const alarmChannel = 'alertes_caisse_v1';
   static const infoChannel = 'alertes_caisse_info_v1';
 
+  /// Petite cloche blanche de la barre d'état (res/drawable/ic_stat_alerte.png).
+  static const statusIcon = 'ic_stat_alerte';
+
   /// Sonneries au choix (fichiers android/app/src/main/res/raw/<nom>.wav).
   /// Android fixe le son d'un canal à sa création : un canal par sonnerie.
   static const tones = ['alarme', 'sirene', 'urgence', 'bip', 'carillon'];
@@ -51,7 +55,7 @@ class NotificationService {
   static Future<void> _initLocal() async {
     if (_localReady) return;
     const settings = InitializationSettings(
-      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+      android: AndroidInitializationSettings(statusIcon),
       iOS: DarwinInitializationSettings(
         requestAlertPermission: false,
         requestBadgePermission: false,
@@ -110,6 +114,8 @@ class NotificationService {
       importance: Importance.max,
       priority: Priority.max,
       category: AndroidNotificationCategory.alarm,
+      visibility: NotificationVisibility.public, // lisible sur l'écran verrouillé
+      color: const Color(0xFFC62828),
       playSound: true,
       sound: RawResourceAndroidNotificationSound(tone),
       audioAttributesUsage: AudioAttributesUsage.alarm,
@@ -145,6 +151,7 @@ class NotificationService {
           playSound: true,
           sound: RawResourceAndroidNotificationSound(tone),
           audioAttributesUsage: AudioAttributesUsage.alarm,
+          color: Color(0xFFC62828),
           timeoutAfter: 8000,
         ),
       ),
@@ -187,50 +194,57 @@ class NotificationService {
     if (!isSupported) return;
     await _initLocal();
 
-    final fm = FirebaseMessaging.instance;
-    await fm.requestPermission(
-      alert: true,
-      sound: true,
-      badge: true,
-      criticalAlert: true,
-    );
     await _local
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
         ?.requestNotificationsPermission();
-    await fm.setForegroundNotificationPresentationOptions(
-        alert: true, sound: true, badge: true);
-
-    FirebaseMessaging.onMessage.listen((m) {
-      if (Platform.isAndroid) handleData(m.data);
-    });
+    try {
+      final fm = FirebaseMessaging.instance;
+      await fm.requestPermission(alert: true, sound: true, badge: true, criticalAlert: true);
+      await fm.setForegroundNotificationPresentationOptions(
+          alert: true, sound: true, badge: true);
+      FirebaseMessaging.onMessage.listen((m) {
+        if (Platform.isAndroid) handleData(m.data);
+      });
+    } catch (_) {
+      // Pas de services Google sur ce téléphone : les alertes passent par l'écoute « En service ».
+    }
   }
 
   /// Enregistre ce téléphone pour recevoir les alertes.
   Future<void> registerManager(String uid) async {
     if (!isSupported) return;
-    final fm = FirebaseMessaging.instance;
-    if (Platform.isIOS) {
-      for (var i = 0; i < 10 && await fm.getAPNSToken() == null; i++) {
-        await Future.delayed(const Duration(milliseconds: 500));
+    try {
+      final fm = FirebaseMessaging.instance;
+      if (Platform.isIOS) {
+        for (var i = 0; i < 10 && await fm.getAPNSToken() == null; i++) {
+          await Future.delayed(const Duration(milliseconds: 500));
+        }
       }
+      final token = await fm.getToken();
+      if (token != null) await _saveToken(uid, token);
+      fm.onTokenRefresh.listen((t) => _saveToken(uid, t));
+    } catch (_) {
+      // Sans jeton (pas de réseau, pas de services Google) l'app fonctionne quand même.
     }
-    final token = await fm.getToken();
-    if (token != null) await _saveToken(uid, token);
-    fm.onTokenRefresh.listen((t) => _saveToken(uid, t));
   }
 
-  Future<void> _saveToken(String uid, String token) =>
-      FirebaseFirestore.instance.collection('users').doc(uid).update({
+  Future<void> _saveToken(String uid, String token) async {
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(uid).update({
         'fcmTokens': FieldValue.arrayUnion([token]),
       });
+    } catch (_) {}
+  }
 
   Future<void> unregisterManager(String uid) async {
     if (!isSupported) return;
-    final token = await FirebaseMessaging.instance.getToken();
-    if (token == null) return;
-    await FirebaseFirestore.instance.collection('users').doc(uid).update({
-      'fcmTokens': FieldValue.arrayRemove([token]),
-    });
+    try {
+      final token = await FirebaseMessaging.instance.getToken();
+      if (token == null) return;
+      await FirebaseFirestore.instance.collection('users').doc(uid).update({
+        'fcmTokens': FieldValue.arrayRemove([token]),
+      });
+    } catch (_) {}
   }
 }

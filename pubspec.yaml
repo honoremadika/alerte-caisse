@@ -1,7 +1,7 @@
 name: alerte_caisse
 description: Alertes caisse -> managers en temps réel (desktop + mobile).
 publish_to: 'none'
-version: 2.0.0+100
+version: 2.1.0+100
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
@@ -19,6 +19,7 @@ dependencies:
   flutter_foreground_task: ^8.14.0  # Android : reste à l'écoute pendant le service (version gratuite, sans serveur)
   # Ordinateur caissier : fenêtre flottante toujours visible + raccourci clavier global
   window_manager: ^0.4.2
+  screen_retriever: ^0.2.0   # taille de l'écran : la fenêtre ne sort jamais de l'écran
   hotkey_manager: ^0.2.3
   launch_at_startup: ^0.3.1
   # Android hors Play Store : avertir d'une nouvelle version

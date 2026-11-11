@@ -32,8 +32,12 @@ Future<void> runAlerteApp(AppMode mode) async {
     await DesktopOverlay.expand();
   }
   if (mode == AppMode.manager && NotificationService.isSupported) {
-    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-    await NotificationService.instance.init();
+    try {
+      FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+      await NotificationService.instance.init();
+    } catch (_) {
+      // Téléphone sans services Google, autorisation refusée… : l'app s'ouvre quand même.
+    }
   }
   runApp(AlerteCaisseApp(mode: mode));
 }

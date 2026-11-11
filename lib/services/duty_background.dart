@@ -42,7 +42,9 @@ class DutyBackground {
       iosNotificationOptions: const IOSNotificationOptions(),
       foregroundTaskOptions: ForegroundTaskOptions(
         eventAction: ForegroundTaskEventAction.repeat(30000),
-        autoRunOnBoot: false,
+        // Téléphone redémarré ou app mise à jour pendant le service : l'écoute repart seule.
+        autoRunOnBoot: true,
+        autoRunOnMyPackageReplaced: true,
         allowWakeLock: true,
         allowWifiLock: true,
       ),
@@ -71,6 +73,7 @@ class DutyBackground {
       await FlutterForegroundTask.saveData(key: 'ac_battery_asked', value: true);
       await FlutterForegroundTask.openIgnoreBatteryOptimizationSettings();
     }
+    final previousStore = await FlutterForegroundTask.getData<String>(key: _kStore);
     await FlutterForegroundTask.saveData(key: _kStore, value: storeId);
     await FlutterForegroundTask.saveData(key: _kLang, value: lang);
     await FlutterForegroundTask.saveData(key: _kUntil, value: until.millisecondsSinceEpoch);
@@ -80,12 +83,18 @@ class DutyBackground {
         ? 'Till alerts will ring on this phone.'
         : 'Les alertes des caisses sonneront sur ce téléphone.';
     if (await FlutterForegroundTask.isRunningService) {
+      // Déjà à l'écoute de ce magasin (app rouverte) : on ne coupe rien.
+      if (previousStore == storeId) {
+        await FlutterForegroundTask.updateService(notificationTitle: title, notificationText: text);
+        return;
+      }
       await FlutterForegroundTask.stopService();
     }
     await FlutterForegroundTask.startService(
       serviceId: 4242,
       notificationTitle: title,
       notificationText: text,
+      notificationIcon: const NotificationIcon(metaDataName: 'tech.geniuslabs.alerte_caisse.ICONE_SERVICE'),
       callback: dutyTaskCallback,
     );
   }
@@ -140,7 +149,20 @@ class _DutyTaskHandler extends TaskHandler {
         .where('storeId', isEqualTo: store)
         .where('status', whereIn: ['open', 'taken'])
         .snapshots()
-        .listen(_onSnapshot, onError: (_) {});
+        .listen(_onSnapshot, onError: (_) => _listenAgainLater(store));
+  }
+
+  /// Écoute coupée (session expirée, erreur du serveur) : nouvel essai 20 s plus tard.
+  void _listenAgainLater(String store) {
+    _sub?.cancel();
+    Future.delayed(const Duration(seconds: 20), () {
+      _sub = FirebaseFirestore.instance
+          .collection('alerts')
+          .where('storeId', isEqualTo: store)
+          .where('status', whereIn: ['open', 'taken'])
+          .snapshots()
+          .listen(_onSnapshot, onError: (_) => _listenAgainLater(store));
+    });
   }
 
   void _onSnapshot(QuerySnapshot<Map<String, dynamic>> snap) {
@@ -186,9 +208,14 @@ class _DutyTaskHandler extends TaskHandler {
     _relances.remove(id);
   }
 
-  void _ring(String id, Map<String, dynamic> d, int relance) {
+  Future<void> _ring(String id, Map<String, dynamic> d, int relance) async {
     final reg = d['register'] ?? '';
-    FlutterForegroundTask.getData<String>(key: kToneKey).then((t) => _tone = t ?? 'alarme');
+    _lastRing[id] = DateTime.now();
+    try {
+      // Sonnerie choisie dans les réglages (peut avoir changé pendant le service).
+      _tone = await FlutterForegroundTask.getData<String>(key: kToneKey) ?? _tone;
+    } catch (_) {}
+    if (!_open.containsKey(id)) return; // prise en charge entre-temps
     final label = _lang == 'en' ? (d['typeEn'] ?? d['typeFr'] ?? '') : (d['typeFr'] ?? '');
     final msg = (d['message'] ?? '').toString();
     NotificationService.showAlarm({
@@ -199,7 +226,6 @@ class _DutyTaskHandler extends TaskHandler {
           : _t('🚨 Caisse $reg', '🚨 Till $reg'),
       'body': '$label — ${d['cashierName'] ?? ''}${msg.isNotEmpty ? ' : $msg' : ''}',
     });
-    _lastRing[id] = DateTime.now();
   }
 
   @override

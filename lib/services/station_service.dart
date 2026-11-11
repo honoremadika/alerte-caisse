@@ -23,7 +23,14 @@ class StationService {
   static const _kName = 'cashierName';
 
   Future<User> ensureSession() async {
-    final u = _auth.currentUser;
+    var u = _auth.currentUser;
+    if (u == null) {
+      // Au démarrage, Windows peut mettre un instant à retrouver la session gardée.
+      try {
+        u = await _auth.authStateChanges().first.timeout(const Duration(seconds: 4));
+      } catch (_) {}
+      u ??= _auth.currentUser;
+    }
     if (u != null) return u;
     final cred = await _auth.signInAnonymously();
     return cred.user!;

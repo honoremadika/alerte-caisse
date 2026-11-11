@@ -24,6 +24,7 @@ class _CaisseGateState extends State<CaisseGate> {
   String? _sid;
   String _name = '';
   bool _resetting = false;
+  bool _serverOff = false; // connexion des postes désactivée côté serveur
 
   @override
   void initState() {
@@ -35,6 +36,7 @@ class _CaisseGateState extends State<CaisseGate> {
     setState(() {
       _loading = true;
       _failed = false;
+      _serverOff = false;
     });
     try {
       // Ancienne version : un compte caissier était connecté sur ce PC. On passe au poste.
@@ -42,8 +44,23 @@ class _CaisseGateState extends State<CaisseGate> {
       if (u != null && !u.isAnonymous) await FirebaseAuth.instance.signOut();
       await _stations.ensureSession();
       _sid = await _stations.savedId();
-      if (_sid != null) await _stations.rebindIfNeeded(_sid!);
+      if (_sid != null) {
+        try {
+          await _stations.rebindIfNeeded(_sid!);
+        } on FirebaseException catch (e) {
+          // Poste supprimé ou refusé côté serveur : on repart sur l'écran du code.
+          if (e.code == 'permission-denied' || e.code == 'not-found') {
+            await _stations.forget();
+            _sid = null;
+          } else {
+            rethrow;
+          }
+        }
+      }
       _name = await _stations.cashierName();
+    } on FirebaseAuthException catch (e) {
+      _failed = true;
+      _serverOff = e.code == 'operation-not-allowed' || e.code == 'admin-restricted-operation';
     } catch (_) {
       _failed = true;
     }
@@ -71,7 +88,7 @@ class _CaisseGateState extends State<CaisseGate> {
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             const Icon(Icons.wifi_off, size: 40, color: CaisseColors.muted),
             const SizedBox(height: 12),
-            Text(tr('connectFailed'), textAlign: TextAlign.center),
+            Text(tr(_serverOff ? 'postsDisabled' : 'connectFailed'), textAlign: TextAlign.center),
             const SizedBox(height: 16),
             FilledButton(onPressed: _start, child: Text(tr('retry'))),
           ]),

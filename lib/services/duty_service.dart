@@ -34,7 +34,9 @@ class DutyService {
   }
 
   Future<void> end(String uid) async {
-    await DutyBackground.stop();
+    try {
+      await DutyBackground.stop();
+    } catch (_) {}
     await _users.doc(uid).update({
       'onDuty': false,
       'dutyUntil': FieldValue.delete(),

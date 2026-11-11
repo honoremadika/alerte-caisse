@@ -172,6 +172,20 @@ if android.exists():
             s += f"\ndependencies {{\n    coreLibraryDesugaring '{DESUGAR}'\n}}\n"
         return s
 
+    # Le contrôle « lint » d'Android plante dans certaines bibliothèques (erreur de l'outil,
+    # pas du code) et arrête la compilation : on le coupe pour la version publiée.
+    def no_lint_app(s: str) -> str:
+        if "checkReleaseBuilds" not in s:
+            s += '\nandroid {\n    lint {\n        checkReleaseBuilds = false\n        abortOnError = false\n    }\n}\n'
+        return s
+
+    def no_lint_root(s: str) -> str:
+        if "lintVital" not in s:
+            s += '\nsubprojects {\n    tasks.configureEach {\n        if (name.startsWith("lintVital")) enabled = false\n    }\n}\n'
+        return s
+
+    patch(android / "build.gradle.kts", no_lint_app)
+    patch(ROOT / "android" / "build.gradle.kts", no_lint_root)
     patch(android / "build.gradle.kts", gradle_kts)
     patch(android / "build.gradle", gradle_groovy)
 

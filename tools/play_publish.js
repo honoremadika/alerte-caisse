@@ -126,14 +126,34 @@ async function main() {
   };
   console.log(`::notice::Fichier accepté par Google : version n° ${bundle.versionCode}`);
   await step("mise dans le test interne refusée", () => call("PUT", `${E}/tracks/internal`, release(status)));
-  try {
-    await step("validation refusée", () => call("POST", `${E}:commit`));
-  } catch (e) {
-    if (!/draft/i.test(e.message)) throw e;
-    status = "draft";
-    await step("mise en brouillon refusée", () => call("PUT", `${E}/tracks/internal`, release(status)));
-    await step("validation du brouillon refusée", () => call("POST", `${E}:commit`));
+  // Envoi réduit au strict minimum (fichier + test interne, sans toucher à la fiche).
+  const minimal = async (st) => {
+    const ed = await call("POST", `${API}/edits`, {});
+    const b = await call("POST", `${UP}/edits/${ed.id}/bundles?uploadType=media`, fs.readFileSync(aab), "application/octet-stream");
+    await call("PUT", `${API}/edits/${ed.id}/tracks/internal`, { track: "internal", releases: [{ name: process.env.VERSION_NAME || String(b.versionCode), versionCodes: [String(b.versionCode)], status: st, releaseNotes: notes }] });
+    await call("POST", `${API}/edits/${ed.id}:commit`);
+  };
+  const tries = [
+    ["complet, publié", () => call("POST", `${E}:commit`)],
+    ["complet, brouillon", async () => { await call("PUT", `${E}/tracks/internal`, release("draft")); await call("POST", `${E}:commit`); }],
+    ["fichier seul, publié", () => minimal("completed")],
+    ["fichier seul, brouillon", () => minimal("draft")],
+  ];
+  let last;
+  let done = null;
+  for (const [label, fn] of tries) {
+    try {
+      await fn();
+      done = label;
+      break;
+    } catch (e) {
+      last = e;
+      console.log(`::warning::Essai « ${label} » refusé : ${one(e.message)}`);
+    }
   }
+  if (!done) throw new Error(`validation refusée dans tous les cas : ${last.message}`);
+  status = done.includes("brouillon") ? "draft" : "completed";
+  if (done.startsWith("fichier seul")) console.log("::warning::Version envoyée, mais la fiche (textes, images) n'a pas pu être mise à jour.");
   const msg = status === "completed"
     ? `Play Store : version n° ${bundle.versionCode} publiée dans le test interne.`
     : `Play Store : version n° ${bundle.versionCode} envoyée en brouillon dans le test interne (à lancer une fois dans la Play Console).`;

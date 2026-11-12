@@ -48,6 +48,9 @@ async function main() {
     scopes: ["https://www.googleapis.com/auth/androidpublisher", "https://www.googleapis.com/auth/cloud-platform"],
   });
   const client = await auth.getClient();
+  // Adresse du compte technique réellement utilisé : c'est elle qui doit être invitée dans la Play Console.
+  const who = client.email || (await auth.getCredentials()).client_email || "inconnu";
+  console.log(`::notice::Compte technique utilisé : ${who}`);
   const token = async () => (await client.getAccessToken()).token;
   const call = async (method, url, body, type) => {
     const res = await fetch(url, {
@@ -75,10 +78,20 @@ async function main() {
   }
 
   // 2. Nouvelle « modification » : fichier de l'app + fiche + canal de test interne.
-  const edit = await call("POST", `${API}/edits`, {});
+  let edit;
+  try {
+    edit = await call("POST", `${API}/edits`, {});
+  } catch (e) {
+    throw new Error(`ouverture refusée pour ${PKG} avec le compte ${who} : ${e.message}`);
+  }
   const E = `${API}/edits/${edit.id}`;
 
-  const bundle = await call("POST", `${UP}/edits/${edit.id}/bundles?uploadType=media`, fs.readFileSync(aab), "application/octet-stream");
+  let bundle;
+  try {
+    bundle = await call("POST", `${UP}/edits/${edit.id}/bundles?uploadType=media`, fs.readFileSync(aab), "application/octet-stream");
+  } catch (e) {
+    throw new Error(`envoi du fichier refusé : ${e.message}`);
+  }
   console.log(`Fichier envoyé : version n° ${bundle.versionCode}`);
 
   try {

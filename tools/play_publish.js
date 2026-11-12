@@ -21,7 +21,7 @@ const one = (s) => String(s).replace(/\s+/g, " ").slice(0, 600);
 
 const LISTING = {
   language: "fr-FR",
-  title: "Alerte Manager",
+  title: "Alerte Manager U-KIN MARCHE",
   shortDescription: "La caisse appelle, votre téléphone sonne. Alertes caisse en temps réel.",
   fullDescription: [
     "Alerte Manager relie les caisses d'un magasin aux téléphones des managers.",

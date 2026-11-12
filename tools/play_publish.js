@@ -121,14 +121,18 @@ async function main() {
 
   // Tant que l'app n'a jamais été publiée, Google n'accepte par l'API que des versions « brouillon ».
   let status = "completed";
-  await call("PUT", `${E}/tracks/internal`, release(status));
+  const step = async (label, fn) => {
+    try { return await fn(); } catch (e) { e.message = `${label} : ${e.message}`; throw e; }
+  };
+  console.log(`::notice::Fichier accepté par Google : version n° ${bundle.versionCode}`);
+  await step("mise dans le test interne refusée", () => call("PUT", `${E}/tracks/internal`, release(status)));
   try {
-    await call("POST", `${E}:commit`);
+    await step("validation refusée", () => call("POST", `${E}:commit`));
   } catch (e) {
     if (!/draft/i.test(e.message)) throw e;
     status = "draft";
-    await call("PUT", `${E}/tracks/internal`, release(status));
-    await call("POST", `${E}:commit`);
+    await step("mise en brouillon refusée", () => call("PUT", `${E}/tracks/internal`, release(status)));
+    await step("validation du brouillon refusée", () => call("POST", `${E}:commit`));
   }
   const msg = status === "completed"
     ? `Play Store : version n° ${bundle.versionCode} publiée dans le test interne.`

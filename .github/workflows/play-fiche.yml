@@ -1,0 +1,24 @@
+# Met à jour la fiche du Play Store (textes, icône, image de présentation).
+name: Fiche Play Store
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fiche:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Mettre à jour la fiche
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+          CONTACT_EMAIL: ${{ vars.CONTACT_EMAIL }}
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "$RUNNER_TEMP/sa.json"
+          npm install --no-save google-auth-library@9
+          node tools/play_fiche.js

@@ -51,6 +51,13 @@ async function stationCodes() {
     await b.commit();
     created++;
   }
+  // Code court : « KM03 » ouvre un poste du magasin km03 (choix du responsable : pas de secret à retenir).
+  for (let i = 0; i < STORES.length; i += 400) {
+    const b = db.batch();
+    for (const s of STORES.slice(i, i + 400)) b.set(db.collection("stationCodes").doc(s.id.toUpperCase()), { storeId: s.id });
+    await b.commit();
+  }
+  console.log(`::notice::Codes courts des magasins (KM01…) : ${STORES.length} actifs.`);
   console.log(`Codes des postes caisse : ${created} créé(s), visibles par les managers dans l'app (Réglages).`);
 }
 

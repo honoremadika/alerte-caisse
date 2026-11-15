@@ -51,6 +51,13 @@ class CashierScreen extends StatelessWidget {
   }
 }
 
+/// Bulle au repos (écran d'installation du poste, attente…).
+class CaisseBubble extends StatelessWidget {
+  const CaisseBubble({super.key});
+  @override
+  Widget build(BuildContext context) => const _Bubble(mine: []);
+}
+
 /// Bulle : rouge (rien en cours), orange (en attente), verte (« Honey arrive »).
 class _Bubble extends StatelessWidget {
   const _Bubble({required this.mine});
@@ -139,13 +146,11 @@ class _CashierPanelState extends State<_CashierPanel> {
   @override
   void initState() {
     super.initState();
-    DesktopOverlay.collapseOnBlur = true;
     HardwareKeyboard.instance.addHandler(_onKey);
   }
 
   @override
   void dispose() {
-    DesktopOverlay.collapseOnBlur = false;
     HardwareKeyboard.instance.removeHandler(_onKey);
     _message.dispose();
     _messageFocus.dispose();

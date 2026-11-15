@@ -29,7 +29,28 @@ class _CaisseGateState extends State<CaisseGate> {
   @override
   void initState() {
     super.initState();
+    // Un clic sur une autre fenêtre range toujours l'app en bulle.
+    DesktopOverlay.collapseOnBlur = true;
     _start();
+  }
+
+  /// Écrans hors poste (installation, attente, erreur) : même bulle quand la
+  /// fenêtre est réduite. L'écran reste en mémoire : ce qui est tapé est gardé.
+  Widget _withBubble(Widget child) {
+    if (!DesktopOverlay.isDesktop) return child;
+    return ValueListenableBuilder<bool>(
+      valueListenable: DesktopOverlay.expanded,
+      builder: (context, open, _) => Stack(children: [
+        Offstage(offstage: !open, child: child),
+        if (!open) const CaisseBubble(),
+      ]),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final page = _page(context);
+    return page is StreamBuilder<Station?> ? page : _withBubble(page);
   }
 
   Future<void> _start() async {
@@ -79,8 +100,7 @@ class _CaisseGateState extends State<CaisseGate> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _page(BuildContext context) {
     if (_loading) return const CaissePage(child: Center(child: CircularProgressIndicator()));
     if (_failed) {
       return CaissePage(
@@ -110,19 +130,19 @@ class _CaisseGateState extends State<CaisseGate> {
           if (e is FirebaseException && e.code == 'permission-denied') {
             WidgetsBinding.instance.addPostFrameCallback((_) => _reset());
           }
-          return const CaissePage(child: Center(child: CircularProgressIndicator()));
+          return _withBubble(const CaissePage(child: Center(child: CircularProgressIndicator())));
         }
         if (!snap.hasData && snap.connectionState == ConnectionState.waiting) {
-          return const CaissePage(child: Center(child: CircularProgressIndicator()));
+          return _withBubble(const CaissePage(child: Center(child: CircularProgressIndicator())));
         }
         final s = snap.data;
         if (s == null || s.isRefused) {
           WidgetsBinding.instance.addPostFrameCallback((_) => _reset());
-          return const CaissePage(child: Center(child: CircularProgressIndicator()));
+          return _withBubble(const CaissePage(child: Center(child: CircularProgressIndicator())));
         }
         if (!s.isApproved) {
           // Poste créé avec l'ancienne méthode (validation par un manager).
-          return CaissePage(
+          return _withBubble(CaissePage(
             child: Center(
               child: Column(mainAxisSize: MainAxisSize.min, children: [
                 Text(tr('waitTitle'), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
@@ -134,7 +154,7 @@ class _CaisseGateState extends State<CaisseGate> {
                 OutlinedButton(onPressed: _reset, child: Text(tr('changePost'))),
               ]),
             ),
-          );
+          ));
         }
         return CashierScreen(
           user: _stations.asCashier(s, _name),
@@ -168,7 +188,7 @@ class _StationSetupScreenState extends State<StationSetupScreen> {
 
   Future<void> _submit() async {
     final till = _till.text.trim();
-    if (StationService.normalizeCode(_code.text).length < 6) {
+    if (StationService.normalizeCode(_code.text).length < 4) {
       setState(() => _error = tr('badCode'));
       return;
     }
@@ -198,6 +218,7 @@ class _StationSetupScreenState extends State<StationSetupScreen> {
   @override
   Widget build(BuildContext context) {
     return CaissePage(
+      canMinimise: true,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
         children: [
@@ -210,7 +231,7 @@ class _StationSetupScreenState extends State<StationSetupScreen> {
             autofocus: true,
             textCapitalization: TextCapitalization.characters,
             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, letterSpacing: 2),
-            decoration: caisseInput(tr('storeCode'), hint: tr('storeCodeHint'), icon: Icons.vpn_key_outlined),
+            decoration: caisseInput(tr('storeCode'), hint: tr('storeCodeHint'), icon: Icons.storefront_outlined),
             onSubmitted: (_) => _submit(),
           ),
           const SizedBox(height: 12),

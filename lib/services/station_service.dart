@@ -78,9 +78,12 @@ class StationService {
     return ref.id;
   }
 
-  /// Normalise un code tapé : « km06 7f3k9p » -> « KM06-7F3K9P ».
+  /// Normalise un code tapé : « km3 », « KM 03 » ou « 3 » -> « KM03 »
+  /// (et l'ancien code long « km06 7f3k9p » -> « KM06-7F3K9P »).
   static String normalizeCode(String raw) {
     final c = raw.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
+    final short = RegExp(r'^(?:KM)?0*(\d{1,2})$').firstMatch(c);
+    if (short != null) return 'KM${short.group(1)!.padLeft(2, '0')}';
     final m = RegExp(r'^(KM\d{2})([A-Z0-9]{6})$').firstMatch(c);
     return m == null ? c : '${m.group(1)}-${m.group(2)}';
   }
@@ -89,7 +92,7 @@ class StationService {
   Future<String> joinWithCode(String rawCode, String register) async {
     final uid = (await ensureSession()).uid;
     final code = normalizeCode(rawCode);
-    if (code.length < 6) throw StateError('bad-code');
+    if (code.length < 4) throw StateError('bad-code');
     final snap = await _db.collection('stationCodes').doc(code).get();
     final storeId = (snap.data()?['storeId'] ?? '').toString();
     if (!snap.exists || storeId.isEmpty) throw StateError('bad-code');
